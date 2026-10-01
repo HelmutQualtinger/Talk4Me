@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Pure logic can be tested without a TTY: `uv run python -c "import talk4me.db as db; print(db.suggest('morg'))"` (reads the real database in `data/`; `add()` writes to it).
 - No tests, linter or build config exist yet.
 
-- Docker: `docker compose up -d --build` (web UI only; multi-stage alpine image, non-root uid 1000, `./data` mounted at `/data`, published on 127.0.0.1 only because the API is unauthenticated). The DB directory comes from `TALK4ME_DATA`, the bind address from `TALK4ME_HOST` (the image sets `0.0.0.0` and `/data`; locally the defaults are `127.0.0.1` and `<project>/data`). Free port 8765 first if a local `talk4me serve` is running.
+- Docker: `docker compose up -d --build` (web UI only; multi-stage alpine image, image user uid 1000 but `docker-compose.yml` overrides it with `user: root`, `./data` mounted at `/data`, published on 127.0.0.1 only because the API is unauthenticated). The DB directory comes from `TALK4ME_DATA`, the bind address from `TALK4ME_HOST` (the image sets `0.0.0.0` and `/data`; locally the defaults are `127.0.0.1` and `<project>/data`). Free port 8765 first if a local `talk4me serve` is running.
 
 ## Architecture
 

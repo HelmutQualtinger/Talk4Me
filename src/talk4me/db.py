@@ -72,8 +72,8 @@ def translation(text, src, dst):
     with closing(_connect()) as c:
         row = (c.execute("SELECT t.text FROM translations t JOIN sentences s ON s.id = t.sentence_id "
                          "WHERE s.text = ? AND t.lang = ?", (text, dst)).fetchone()
-               or c.execute("SELECT s.text FROM translations t JOIN sentences s ON s.id = t.sentence_id "
-                            "WHERE t.text = ? AND t.lang = ? AND s.lang = ?", (text, src, dst)).fetchone())
+               or src != dst and c.execute("SELECT s.text FROM translations t JOIN sentences s ON s.id = t.sentence_id "
+                                           "WHERE t.text = ? AND t.lang = ? AND s.lang = ?", (text, src, dst)).fetchone())
         return row[0] if row else None
 
 

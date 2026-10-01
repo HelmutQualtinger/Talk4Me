@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Talk4Me</title>
+<meta name="description" content="Tippen, übersetzen, sprechen lassen. Selbst hostbar, Sätze bleiben in der eigenen Datenbank.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Talk4Me">
+<meta property="og:description" content="Tippen, übersetzen, sprechen lassen. Selbst hostbar, Sätze bleiben in der eigenen Datenbank.">
+<meta property="og:image" content="https://raw.githubusercontent.com/HelmutQualtinger/Talk4Me/main/docs/social-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/HelmutQualtinger/Talk4Me/main/docs/social-preview.png">
 <style>
   :root {
     --paper: #e8edf0; --surface: #f9fbfc; --ink: #18212b; --muted: #62717d; --line: #cfd8de;
@@ -63,10 +72,22 @@
   #card.speaking .eq i:nth-child(3) { animation-delay: .3s; }
   @keyframes eq { 50% { height: 100%; } }
   @media (prefers-reduced-motion: reduce) { #card.speaking .eq i { animation: none; height: 80%; } }
+  /* Sprechblase: der gesprochene Satz, solange gesprochen wird */
+  #bubble { position: fixed; right: 16px; top: 16px; z-index: 20; max-width: min(420px, calc(100vw - 32px));
+            padding: 12px 18px; font-size: 22px; line-height: 1.3; font-weight: 600; text-align: left;
+            background: var(--surface); color: inherit; border: 2px solid var(--accent); border-radius: 20px;
+            box-shadow: 0 6px 24px rgba(0,0,0,.25); pointer-events: none;
+            opacity: 0; transform: translateY(-10px); transition: opacity .2s, transform .2s; }
+  #bubble.show { opacity: 1; transform: none; }
+  #bubble::after { content: ""; position: absolute; right: 22px; bottom: 100%; width: 16px; height: 16px; margin-bottom: -9px;
+                   background: var(--surface); border: solid var(--accent); border-width: 2px 0 0 2px; transform: rotate(45deg); }
+  @media (prefers-reduced-motion: reduce) { #bubble { transition: none; } }
   #status { margin: 6px 2px 0; font-size: 12px; color: var(--muted); }
   #status:empty { display: none; }
 
   /* Tastenhinweise und Verlauf */
+  .about { margin: 16px 2px 0; font-size: 12px; color: var(--muted); }
+  .about a { color: inherit; }
   .keys { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 2px 0; font-size: 12px; color: var(--muted); }
   details { margin-top: 16px; }
   summary { width: fit-content; cursor: pointer; font-size: 13px; color: var(--muted); }
@@ -90,6 +111,7 @@
 </style>
 </head>
 <body>
+  <div id="bubble" role="status" aria-live="polite"></div>
   <nav id="menu">
     <button class="burger" aria-label="Einstellungen" aria-haspopup="true">☰</button>
     <div class="settings"><div class="box">
@@ -135,7 +157,7 @@
 
   <div class="keys">
     <span><kbd>↑</kbd> <kbd>↓</kbd> wählen</span>
-    <span><kbd>Tab</kbd> Vorschlag sprechen</span>
+    <span><kbd>Tab</kbd> Vorschlag übernehmen, <kbd>Tab</kbd><kbd>Tab</kbd> sprechen</span>
     <span><kbd>Enter</kbd> Text sprechen</span>
     <span><kbd>Esc</kbd> stoppen oder leeren</span>
   </div>
@@ -148,6 +170,8 @@
       <button id="clear">Log löschen</button>
     </div>
   </details>
+
+  <p class="about">Empfehlung: Am besten auf dem eigenen Rechner installieren (Anleitung auf <a href="https://github.com/HelmutQualtinger/Talk4Me" target="_blank" rel="noopener">GitHub</a>). Dann liegen Sätze und Übersetzungen nur in der eigenen Datenbank, ohne Konto und Tracking. Nur zum Übersetzen geht ein Satz an Google Translate (außer er ist schon in der Datenbank).</p>
 </main>
 
 <script>
@@ -193,15 +217,18 @@ $("src").onchange = $("dst").onchange = $("gender").onchange = $("region").oncha
 // ---------- Übersetzen & Sprechen ----------
 // Erst die Datenbank (vorwärts oder rückwärts über den Fremdschlüssel), sonst Google – und Ergebnis speichern
 async function translate(text, from, to) {
-  if (from === to) return { text };
   const q = new URLSearchParams({ text, from, to });
   const hit = (await fetch("/api/translation?" + q).then(r => r.json()).catch(() => ({}))).text;
   if (hit) return { text: hit, cached: true };
   // inoffizieller, keyloser Google-Endpunkt; Antwort: [[[übersetzt, original, …], …], …]
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=${from}&tl=${to}&q=` + encodeURIComponent(text);
-  const r = await fetch(url);
-  if (!r.ok) throw new Error("Übersetzung fehlgeschlagen (HTTP " + r.status + ")");
-  const translation = (await r.json())[0].map(s => s[0]).join("");
+  // Gleiche Sprache: Umweg über eine Zwischensprache (Hin- und Rückübersetzung), das glättet die Grammatik
+  const gtx = async (t, sl, tl) => {
+    const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=${sl}&tl=${tl}&q=` + encodeURIComponent(t));
+    if (!r.ok) throw new Error("Übersetzung fehlgeschlagen (HTTP " + r.status + ")");
+    return (await r.json())[0].map(s => s[0]).join("");
+  };
+  const pivot = from === "en" ? "de" : "en";
+  const translation = from === to ? await gtx(await gtx(text, from, pivot), pivot, to) : await gtx(text, from, to);
   api("POST", { text, to, translation }, "/api/translation").catch(dbError);
   return { text: translation };
 }
@@ -240,7 +267,12 @@ function pickVoice(lang) {
     }
 }
 
-let current = null;
+let current = null, bubbleTimer;
+function bubble(on) { // Sprechblase an/aus; spätestens nach 10 s verschwindet sie auch bei laufender Ausgabe
+  clearTimeout(bubbleTimer);
+  $("bubble").classList.toggle("show", on);
+  if (on) bubbleTimer = setTimeout(() => bubble(false), 10000);
+}
 function speak(text, lang) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -253,8 +285,9 @@ function speak(text, lang) {
   else if (speechSynthesis.getVoices().length)
     $("status").textContent = `Keine ${GENDER[$("gender").value]} ${LANGS[lang]}-Stimme gefunden (gesucht: ${VOICES[$("gender").value][lang].slice(0, 4).join(", ")} …) – Systemstimme wird verwendet.`;
   current = u; // Pegelanzeige nur für die jüngste Ausgabe (cancel() meldet die alte verspätet als beendet)
-  u.onstart = () => current === u && $("card").classList.add("speaking");
-  u.onend = u.onerror = () => current === u && $("card").classList.remove("speaking");
+  $("bubble").textContent = text;
+  u.onstart = () => current === u && ($("card").classList.add("speaking"), bubble(true));
+  u.onend = u.onerror = () => current === u && ($("card").classList.remove("speaking"), bubble(false));
   speechSynthesis.speak(u);
 }
 
@@ -267,17 +300,18 @@ async function say(text, from) {
   $("out").innerHTML = "";
   let out = text, cached = false;
   try {
-    ({ text: out, cached } = await translate(text, from, to));
+    if (!text.endsWith("!!")) // zwei Rufzeichen am Ende: unübersetzt, wörtlich sprechen
+      ({ text: out, cached } = await translate(text, from, to));
   } catch (e) {
     if (id !== speaking) return;
     $("status").textContent = "Fehler: " + e.message + " – spreche Original.";
   }
   if (id !== speaking) return;
   const spokenLang = out === text ? from : to;
-  // Gleiche Sprache (oder unverändertes Ergebnis): keine Übersetzung zeigen, nur den gesprochenen Satz
-  const translated = from !== to && out !== text;
+  // Unverändertes Ergebnis: Original nicht extra zeigen, nur den gesprochenen Satz
+  const translated = out !== text;
   $("out").innerHTML = (translated ? `<div class="muted"></div>` : "") + `<div class="tr"></div>`;
-  if (translated) $("out").firstChild.textContent = `${LANGS[from]}: ${text}` + (cached ? " · Übersetzung aus der Datenbank" : "");
+  if (translated) $("out").firstChild.textContent = `${from === to ? "Original" : LANGS[from]}: ${text}` + (cached ? " · Übersetzung aus der Datenbank" : "");
   $("out").lastChild.textContent = out;
   speak(out, spokenLang);
 }
@@ -304,7 +338,7 @@ function refresh() {
     sugg = l;
     sel = Math.min(sel, Math.max(sugg.length - 1, 0));
     renderList($("sugg"), sugg, sel);
-    [...$("sugg").children].forEach((li, i) => li.onclick = () => take(i));
+    [...$("sugg").children].forEach((li, i) => li.onclick = () => fill(sugg[i]));
   }).catch(dbError);
 }
 
@@ -321,6 +355,22 @@ function take(i, e = sugg[i]) {
   say(e.text, e.lang);
 }
 
+// Tab/Tippen übernimmt den Vorschlag ins Textfeld, zweites Tab/Tippen innerhalb von 0,5 s sendet
+let lastFill = 0;
+function fill(e = sugg[sel]) {
+  if (!e) return;
+  const now = Date.now(), twice = now - lastFill < 500 && $("q").value.trim();
+  lastFill = now;
+  if (twice) { lastFill = 0; go(); return; }
+  if ([...$("src").options].some(o => o.value === e.lang)) $("src").value = e.lang;
+  const q = $("q");
+  q.value = e.text;
+  q.focus();
+  q.setSelectionRange(e.text.length, e.text.length);
+  sel = 0;
+  refresh();
+}
+
 $("q").addEventListener("input", () => { sel = 0; refresh(); });
 // Tastatur global, damit ↑/↓/Tab auch funktionieren, wenn der Fokus nicht im Eingabefeld liegt
 function move(d) {
@@ -333,7 +383,7 @@ document.addEventListener("keydown", e => {
   if (t === "SELECT" || e.target.type === "range" || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
   else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
-  else if (e.key === "Tab" && sugg.length) { e.preventDefault(); $("q").focus(); take(sel); }
+  else if (e.key === "Tab" && sugg.length) { e.preventDefault(); fill(); }
   else if (e.key === "Enter" && t !== "BUTTON") go();
   else if (e.key === "Escape") { // laufende Wiedergabe stoppen, sonst Feld leeren
     const busy = speechSynthesis.speaking || speechSynthesis.pending;

@@ -4,7 +4,15 @@ services:
     image: talk4me
     container_name: talk4me
     restart: unless-stopped
+    user: root                  # ./data gehört root auf dem Host; das Image-Standardbenutzer (uid 1000) könnte dort nicht schreiben
     ports:
       - "127.0.0.1:8765:8765"   # nur lokal erreichbar: die API hat keine Anmeldung
     volumes:
       - ./data:/data            # SQLite-Datenbank (dieselbe wie beim lokalen Start)
+    networks:
+      - reverse-proxy           # NPM erreicht den Container per Name: talk4me:8765
+
+networks:
+  reverse-proxy:
+    external: true
+    name: reverse-proxy

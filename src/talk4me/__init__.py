@@ -4,7 +4,7 @@
 Enter = tippen & sprechen | ↑/↓ = Vorschlag wählen | Tab = Vorschlag sprechen | Esc/Ctrl-C = Ende
 Aufruf: uv run talk4me [-v Voice]  |  uv run talk4me serve [port]  (Web-UI)   (Voices: `say -v '?'`, z.B. Anna für Deutsch)
 """
-import curses, subprocess, sys
+import curses, shutil, subprocess, sys
 
 from . import db
 
@@ -59,6 +59,8 @@ def main():
     if sys.argv[1:2] == ["serve"]:  # talk4me serve [port]
         from .server import serve
         return serve(int(sys.argv[2]) if len(sys.argv) > 2 else 8765)
+    if not shutil.which("say"):
+        sys.exit("`say` nicht gefunden: die Terminal-Version läuft nur auf macOS. Web-UI: uv run talk4me serve")
     try:
         curses.wrapper(run)
     except KeyboardInterrupt:
