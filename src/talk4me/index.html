@@ -392,7 +392,7 @@ async function translate(text, from, to) {
   };
   const pivot = from === "en" ? "de" : "en";
   const translation = from === to ? await gtx(await gtx(text, from, pivot), pivot, to) : await gtx(text, from, to);
-  api("POST", { text, to, translation }, "/api/translation").catch(dbError);
+  api("POST", { text, to, translation }, "/api/translation").then(reload).catch(dbError); // neu geladen, damit die Suche die Übersetzung findet
   return { text: translation };
 }
 
@@ -547,16 +547,50 @@ function renderList(el, items, selIdx) {
   }));
 }
 
-let req = 0; // nur die jüngste Antwort anzeigen
+// ---------- Suche im Browser (Port von db.suggest): beim Tippen geht nichts an den Server ----------
+// difflib.SequenceMatcher.ratio(): 2·Treffer/Länge, Treffer = längster gemeinsamer Block, dann rekursiv links und rechts davon
+function matched(a, al, ah, b, bl, bh) {
+  let best = 0, bi = 0, bj = 0, prev = new Array(bh - bl + 1).fill(0);
+  for (let i = al; i < ah; i++) {
+    const cur = new Array(bh - bl + 1).fill(0);
+    for (let j = bl; j < bh; j++) if (a[i] === b[j]) {
+      const k = cur[j - bl + 1] = prev[j - bl] + 1;
+      if (k > best) { best = k; bi = i - k + 1; bj = j - k + 1; }
+    }
+    prev = cur;
+  }
+  if (!best) return 0;
+  return best + matched(a, al, bi, b, bl, bj) + matched(a, bi + best, ah, b, bj + best, bh);
+}
+const ratio = (a, b) => a.length + b.length ? 2 * matched(a, 0, a.length, b, 0, b.length) / (a.length + b.length) : 1;
+function fuzzy(q, text) {
+  const x = text.toLowerCase();
+  const best = ratio(q, x) + (x.includes(q) ? 1 : 0); // Teilstring-Treffer belohnen
+  return Math.max(best, ...x.split(/\s+/).filter(Boolean).map(w => ratio(q, w)), 0);
+}
+function popularity(e) { // häufig (log) und kürzlich (Halbwertszeit 7 Tage) verwendet
+  const age = (Date.now() - new Date(e.last_used)) / 864e5;
+  return 0.1 * Math.log1p(e.count) + 0.2 * 0.5 ** (age / 7);
+}
+function suggest(q, n = 50) {
+  q = q.trim().toLowerCase();
+  if (!q) return log.slice(0, n);
+  const scored = [];
+  for (const e of log) {
+    let f = fuzzy(q, e.text), via = null;
+    for (const x of Object.values(e.translations || {})) { // Treffer in einer Übersetzung liefert das Original
+      const g = fuzzy(q, x);
+      if (g > f) { f = g; via = x; }
+    }
+    if (f > 0.4) scored.push([f + popularity(e), via ? { ...e, via } : e]);
+  }
+  return scored.sort((a, b) => b[0] - a[0]).slice(0, n).map(r => r[1]);
+}
 function refresh() {
-  const id = ++req;
-  api("GET", null, "/api/suggest?q=" + encodeURIComponent($("q").value)).then(r => r.json()).then(l => {
-    if (id !== req) return;
-    sugg = l;
-    sel = Math.min(sel, Math.max(sugg.length - 1, 0));
-    renderList($("sugg"), sugg, sel);
-    [...$("sugg").children].forEach((li, i) => li.onclick = () => fill(sugg[i]));
-  }).catch(dbError);
+  sugg = suggest($("q").value);
+  sel = Math.min(sel, Math.max(sugg.length - 1, 0));
+  renderList($("sugg"), sugg, sel);
+  [...$("sugg").children].forEach((li, i) => li.onclick = () => fill(sugg[i]));
 }
 
 function renderLog() {
