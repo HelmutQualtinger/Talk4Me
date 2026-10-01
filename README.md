@@ -1,6 +1,6 @@
 # Talk4Me
 
-Type a sentence, hear it spoken. Sentences you have used before are remembered and suggested while you type, so you can repeat them with two key presses and no mouse. Optionally, the sentence is translated into German, English, Italian or French first.
+Type a sentence, hear it spoken. Sentences you have used before are remembered and suggested while you type, so you can repeat them with two key presses and no mouse. Optionally, the sentence is translated into German, English, Italian, French, Hungarian or Japanese first.
 
 ![Talk4Me web UI](docs/screenshot.png)
 
@@ -10,7 +10,7 @@ Type a sentence, hear it spoken. Sentences you have used before are remembered a
 
 - **Fuzzy suggestions while typing**, ranked by similarity plus a bonus for sentences used often and recently. With an empty input field, the 50 most recently used sentences are shown, scrollable with the arrow keys (each only once).
 - **Keyboard only**: `↑`/`↓` select a suggestion, `Tab` speaks it, `Enter` speaks what you typed, `Esc` stops the playback (or clears the field when nothing is playing).
-- **Translation** between German, English, Italian and French. Translations are stored and reused, in both directions (a stored translation also leads back to its original).
+- **Translation** between German, English, Italian, French, Hungarian and Japanese. Translations are stored and reused, in both directions (a stored translation also leads back to its original).
 - **Settings in a hamburger menu** (top left of the web UI): they appear when you hover the ☰ button. Input and target language, male or female voice, German variant (Austria, Switzerland, Germany) and speed from 80 to 150 %.
 - **One SQLite database** shared by the web UI and the terminal UI. Every sentence is stored once, with its language, first and last use date and use count.
 

@@ -19,18 +19,49 @@
     --accent: #0b6e5d; --accent-ink: #fff; --hl: #fdf1a8; --hl-ink: #18212b;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --paper: #10171c; --surface: #18222a; --ink: #e7eef2; --muted: #8a9aa6; --line: #2b3944;
       --accent: #47c9ae; --accent-ink: #06211b; --hl: #3b3813; --hl-ink: #f2ecb8;
     }
   }
+  :root[data-theme="dark"] {
+    --paper: #10171c; --surface: #18222a; --ink: #e7eef2; --muted: #8a9aa6; --line: #2b3944;
+    --accent: #47c9ae; --accent-ink: #06211b; --hl: #3b3813; --hl-ink: #f2ecb8;
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink);
          font: 15px/1.35 ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 10px 16px 32px; }
-  h1 { display: flex; align-items: center; min-height: 34px; margin: 0 0 10px; padding-left: 44px;
+  .top { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; justify-self: end; }
+  .look { display: flex; align-items: center; gap: 6px; }
+  .rate { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .rate input { width: 90px; accent-color: var(--accent); }
+  #flags { display: flex; gap: 2px; }
+  #flags button, .theme { width: 30px; height: 30px; padding: 0; font-size: 18px; line-height: 1; background: none;
+                          border: 1.5px solid transparent; border-radius: 8px; }
+  #flags button[aria-pressed="true"] { border-color: var(--accent); background: var(--surface); }
+  .theme { border-color: var(--line) !important; background: var(--surface) !important; }
+  .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(128,128,128,.45); }
+  h1 { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 34px; margin: 0 0 10px; padding-left: 44px;
        font-size: 15px; font-weight: 700; letter-spacing: .02em; }
   @media (min-width: 760px) { h1 { padding-left: 0; } }
+  @media (max-width: 559px) { h1 { grid-template-columns: 1fr auto; row-gap: 6px; }
+                              .pair { grid-row: 2; grid-column: 1 / -1; justify-self: center; } }
+  /* Ursprungs- und Zielsprache: zwei Flaggen, jede ein Auswahlmenü */
+  .pair { display: flex; align-items: center; gap: 6px; font-weight: 400; }
+  .picker { position: relative; }
+  .pk { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; background: var(--surface);
+        border: 1.5px solid var(--line); border-radius: 8px; font-size: 11px; color: var(--muted); }
+  .pk svg.flag { width: 28px; height: auto; }
+  .pkmenu { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 15; margin-top: 4px; padding: 4px;
+            min-width: 150px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+            box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+  .pkmenu[hidden] { display: none; }
+  .pkmenu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; background: none;
+                   border: 0; border-radius: 6px; font-size: 14px; text-align: left; }
+  .pkmenu button:hover, .pkmenu button[aria-selected="true"] { background: var(--hl); color: var(--hl-ink); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button, select, input { font: inherit; color: var(--ink); }
   button { cursor: pointer; }
@@ -55,6 +86,9 @@
   li > span { flex: 1; }
   li small { color: var(--muted); font-size: 12px; white-space: nowrap; }
   li.sel { background: var(--hl); color: var(--hl-ink); border-left-color: var(--accent); }
+  li .del { flex: none; width: 22px; height: 22px; padding: 0; font-size: 16px; line-height: 1; color: var(--muted);
+            background: none; border: 0; border-radius: 6px; opacity: .55; }
+  li .del:hover, li .del:focus-visible { opacity: 1; color: #c0392b; background: var(--paper); }
   li.sel small { color: inherit; opacity: .7; }
 
   /* Ergebnis: der gesprochene Satz, mit Pegelanzeige während der Wiedergabe */
@@ -62,6 +96,7 @@
           border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; }
   #card:has(#out:empty) { display: none; }
   #out .muted { font-size: 13px; color: var(--muted); }
+  #out .romaji { font-size: 15px; font-style: italic; color: var(--muted); }
   #out .tr { font-size: 24px; line-height: 1.25; font-weight: 600; }
   .eq { position: absolute; top: 14px; right: 14px; display: flex; align-items: flex-end; gap: 2px;
         height: 18px; opacity: 0; }
@@ -113,39 +148,46 @@
 <body>
   <div id="bubble" role="status" aria-live="polite"></div>
   <nav id="menu">
-    <button class="burger" aria-label="Einstellungen" aria-haspopup="true">☰</button>
+    <button class="burger" data-i18n-aria="settings" aria-haspopup="true">☰</button>
     <div class="settings"><div class="box">
-      <label>Eingabesprache <select id="src"></select></label>
-      <label>Sprechen in <select id="dst"></select></label>
-      <label>Deutsch-Variante
+      <select id="src" hidden></select><select id="dst" hidden></select>
+      <label><span data-i18n="region"></span>
         <select id="region">
-          <option value="at">Österreich</option>
-          <option value="ch">Schweiz</option>
-          <option value="de">Deutschland</option>
+          <option value="at" data-i18n="at"></option>
+          <option value="ch" data-i18n="ch"></option>
+          <option value="de" data-i18n="de"></option>
         </select>
       </label>
-      <label>Stimme
+      <label><span data-i18n="voice"></span>
         <select id="gender">
-          <option value="m">männlich</option>
-          <option value="f">weiblich</option>
+          <option value="m" data-i18n="male"></option>
+          <option value="f" data-i18n="female"></option>
         </select>
       </label>
-      <label>Stimme für <select id="vlang"></select></label>
-      <label>Konkrete Stimme <span id="vcount"></span>
+      <label><span data-i18n="voicefor"></span> <select id="vlang"></select></label>
+      <label><span data-i18n="concrete"></span> <span id="vcount"></span>
         <select id="voice"></select>
-      </label>
-      <label class="wide"><span>Tempo <span id="rateval"></span></span>
-        <input id="rate" type="range" min="80" max="150" step="5" value="100">
       </label>
     </div></div>
   </nav>
 
 <main>
-  <h1>Talk4Me</h1>
+  <h1><span>Talk4Me</span>
+    <span class="pair"><span class="picker" id="pk-src"></span><span aria-hidden="true">→</span><span class="picker" id="pk-dst"></span></span>
+    <span class="top">
+      <span class="look">
+        <span id="flags" role="group" data-i18n-aria="uilang"></span>
+        <button class="theme" id="theme" type="button"></button>
+      </span>
+      <label class="rate"><span><span data-i18n="rate"></span> <span id="rateval"></span></span>
+        <input id="rate" type="range" min="80" max="150" step="5" value="100">
+      </label>
+    </span>
+  </h1>
 
   <div class="field">
-    <input id="q" type="text" autocomplete="off" autofocus placeholder="Satz eintippen …" aria-label="Satz">
-    <button id="go">Sprechen</button>
+    <input id="q" type="text" autocomplete="off" autofocus data-i18n-ph="ph" data-i18n-aria="sentence">
+    <button id="go" data-i18n="speak"></button>
   </div>
   <ul id="sugg" role="listbox"></ul>
 
@@ -156,27 +198,149 @@
   <div id="status"></div>
 
   <div class="keys">
-    <span><kbd>↑</kbd> <kbd>↓</kbd> wählen</span>
-    <span><kbd>Tab</kbd> Vorschlag übernehmen, <kbd>Tab</kbd><kbd>Tab</kbd> sprechen</span>
-    <span><kbd>Enter</kbd> Text sprechen</span>
-    <span><kbd>Esc</kbd> stoppen oder leeren</span>
+    <span><kbd>↑</kbd> <kbd>↓</kbd> <span data-i18n="k_sel"></span></span>
+    <span><kbd>Tab</kbd> <span data-i18n="k_tab1"></span>, <kbd>Tab</kbd><kbd>Tab</kbd> <span data-i18n="k_tab2"></span></span>
+    <span><kbd>Enter</kbd> <span data-i18n="k_enter"></span></span>
+    <span><kbd>Esc</kbd> <span data-i18n="k_esc"></span></span>
   </div>
 
   <details>
-    <summary>Verlauf (<span id="hcount">0</span>)</summary>
+    <summary><span data-i18n="history"></span> (<span id="hcount">0</span>)</summary>
     <ul id="log"></ul>
     <div class="tools">
-      <button id="export">Exportieren</button>
-      <button id="clear">Log löschen</button>
+      <button id="export" data-i18n="export"></button>
+      <button id="clear" data-i18n="clear"></button>
     </div>
   </details>
 
-  <p class="about">Empfehlung: Am besten auf dem eigenen Rechner installieren (Anleitung auf <a href="https://github.com/HelmutQualtinger/Talk4Me" target="_blank" rel="noopener">GitHub</a>). Dann liegen Sätze und Übersetzungen nur in der eigenen Datenbank, ohne Konto und Tracking. Nur zum Übersetzen geht ein Satz an Google Translate (außer er ist schon in der Datenbank).</p>
+  <p class="about" data-i18n-html="about"></p>
 </main>
 
 <script>
-const LANGS = { de: "Deutsch", en: "English", it: "Italiano", fr: "Français" };
-const BCP47 = { de: "de-DE", en: "en-US", it: "it-IT", fr: "fr-FR" };
+const LANGS = { de: "Deutsch", en: "English", it: "Italiano", fr: "Français", hu: "Magyar", ja: "日本語", es: "Español", ru: "Русский", zh: "中文" };
+const BCP47 = { de: "de-DE", en: "en-US", it: "it-IT", fr: "fr-FR", hu: "hu-HU", ja: "ja-JP", es: "es-ES", ru: "ru-RU", zh: "zh-CN" };
+const GTX = { zh: "zh-CN" }; // Google-Sprachcode, wo er vom Schlüssel abweicht
+const FLAGS = {
+  es: `<rect width="60" height="40" fill="#aa151b"/><rect y="10" width="60" height="20" fill="#f1bf00"/>`,
+  ru: `<rect width="60" height="13.4" fill="#fff"/><rect y="13.33" width="60" height="13.4" fill="#0039a6"/><rect y="26.67" width="60" height="13.4" fill="#d52b1e"/>`,
+  zh: `<rect width="60" height="40" fill="#de2910"/><path d="M10 4l2.4 7.4h7.8l-6.3 4.6 2.4 7.4-6.3-4.6-6.3 4.6 2.4-7.4-6.3-4.6h7.8z" fill="#ffde00"/>`,
+  ja: `<rect width="60" height="40" fill="#fff"/><circle cx="30" cy="20" r="12" fill="#bc002d"/>`,
+  de: `<rect y="0.00" width="60" height="13.4" fill="#000"/><rect y="13.33" width="60" height="13.4" fill="#d00"/><rect y="26.67" width="60" height="13.4" fill="#ffce00"/>`,
+  en: `<rect width="60" height="40" fill="#012169"/><path d="M0 0L60 40M60 0L0 40" stroke="#fff" stroke-width="7"/><path d="M0 0L60 40M60 0L0 40" stroke="#c8102e" stroke-width="3"/><path d="M30 0V40M0 20H60" stroke="#fff" stroke-width="12"/><path d="M30 0V40M0 20H60" stroke="#c8102e" stroke-width="7"/>`,
+  it: `<rect x="0" width="20" height="40" fill="#009246"/><rect x="20" width="20" height="40" fill="#fff"/><rect x="40" width="20" height="40" fill="#ce2b37"/>`,
+  fr: `<rect x="0" width="20" height="40" fill="#0055a4"/><rect x="20" width="20" height="40" fill="#fff"/><rect x="40" width="20" height="40" fill="#ef4135"/>`,
+  hu: `<rect y="0.00" width="60" height="13.4" fill="#cd2a3e"/><rect y="13.33" width="60" height="13.4" fill="#fff"/><rect y="26.67" width="60" height="13.4" fill="#436f4d"/>`,
+};
+const flagSvg = c => `<svg class="flag" viewBox="0 0 60 40" width="24" height="16" aria-hidden="true">${FLAGS[c]}</svg>`;
+const GH = "https://github.com/HelmutQualtinger/Talk4Me";
+const link = t => `<a href="${GH}" target="_blank" rel="noopener">${t}</a>`;
+// Oberflächentexte je Sprache; {0}, {1} … sind Platzhalter
+const I18N = {
+  de: { delete: "Nachricht löschen", settings: "Einstellungen", uilang: "Sprache der Oberfläche", theme_light: "Zum hellen Design wechseln", theme_dark: "Zum dunklen Design wechseln",
+    src: "Eingabesprache", dst: "Sprechen in", region: "Deutsch-Variante", at: "Österreich", ch: "Schweiz", de: "Deutschland",
+    voice: "Stimme", male: "männlich", female: "weiblich", voicefor: "Stimme für", concrete: "Konkrete Stimme", found: "({0} gefunden)", auto: "Automatisch (nach Geschlecht)",
+    rate: "Tempo", ph: "Satz eintippen …", sentence: "Satz", speak: "Sprechen",
+    k_sel: "wählen", k_tab1: "Vorschlag übernehmen", k_tab2: "sprechen", k_enter: "Text sprechen", k_esc: "stoppen oder leeren",
+    history: "Verlauf", export: "Exportieren", clear: "Alle Nachrichten löschen", confirm_clear: "Wirklich alle Nachrichten und alle gespeicherten Übersetzungen aus der Datenbank löschen? Das lässt sich nicht rückgängig machen.",
+    about: `Empfehlung: Am besten auf dem eigenen Rechner installieren (Anleitung auf ${link("GitHub")}). Dann liegen Sätze und Übersetzungen nur in der eigenen Datenbank, ohne Konto und Tracking. Nur zum Übersetzen geht ein Satz an Google Translate (außer er ist schon in der Datenbank).`,
+    dberr: "Datenbank nicht erreichbar – Web-UI mit `uv run talk4me serve` starten, sonst wird nichts gespeichert.",
+    voiceis: "Stimme: {0}", noregion: " – keine Stimme für {0} installiert, deutsche Stimme wird verwendet",
+    novoice: "Keine {0}-Stimme installiert – es wird die Systemstimme verwendet, die Aussprache kann falsch klingen.",
+    transfail: "Übersetzung fehlgeschlagen (HTTP {0})", error: "Fehler: {0} – spreche Original.", orig: "Original", cached: " · Übersetzung aus der Datenbank" },
+  en: { delete: "Delete message", settings: "Settings", uilang: "Interface language", theme_light: "Switch to light theme", theme_dark: "Switch to dark theme",
+    src: "Input language", dst: "Speak in", region: "German variant", at: "Austria", ch: "Switzerland", de: "Germany",
+    voice: "Voice", male: "male", female: "female", voicefor: "Voice for", concrete: "Specific voice", found: "({0} found)", auto: "Automatic (by gender)",
+    rate: "Speed", ph: "Type a sentence …", sentence: "Sentence", speak: "Speak",
+    k_sel: "select", k_tab1: "use suggestion", k_tab2: "speak", k_enter: "speak text", k_esc: "stop or clear",
+    history: "History", export: "Export", clear: "Delete all messages", confirm_clear: "Really delete all messages and all stored translations from the database? This cannot be undone.",
+    about: `Recommended: install it on your own computer (instructions on ${link("GitHub")}). Then sentences and translations stay in your own database, with no account and no tracking. Only for translating, a sentence is sent to Google Translate (unless it is already in the database).`,
+    dberr: "Database not reachable – start the web UI with `uv run talk4me serve`, otherwise nothing is saved.",
+    voiceis: "Voice: {0}", noregion: " – no voice for {0} installed, using a German voice",
+    novoice: "No {0} voice installed – using the system voice, pronunciation may sound wrong.",
+    transfail: "Translation failed (HTTP {0})", error: "Error: {0} – speaking the original.", orig: "Original", cached: " · translation from the database" },
+  it: { delete: "Elimina messaggio", settings: "Impostazioni", uilang: "Lingua dell'interfaccia", theme_light: "Passa al tema chiaro", theme_dark: "Passa al tema scuro",
+    src: "Lingua di input", dst: "Parla in", region: "Variante tedesca", at: "Austria", ch: "Svizzera", de: "Germania",
+    voice: "Voce", male: "maschile", female: "femminile", voicefor: "Voce per", concrete: "Voce specifica", found: "({0} trovate)", auto: "Automatica (per genere)",
+    rate: "Velocità", ph: "Scrivi una frase …", sentence: "Frase", speak: "Parla",
+    k_sel: "seleziona", k_tab1: "usa il suggerimento", k_tab2: "parla", k_enter: "pronuncia il testo", k_esc: "ferma o svuota",
+    history: "Cronologia", export: "Esporta", clear: "Elimina tutti i messaggi", confirm_clear: "Eliminare davvero tutti i messaggi e tutte le traduzioni salvate dal database? Non si può annullare.",
+    about: `Consigliato: installalo sul tuo computer (istruzioni su ${link("GitHub")}). Così frasi e traduzioni restano solo nel tuo database, senza account e senza tracciamento. Solo per tradurre, una frase viene inviata a Google Translate (a meno che non sia già nel database).`,
+    dberr: "Database non raggiungibile – avvia la web UI con `uv run talk4me serve`, altrimenti non viene salvato nulla.",
+    voiceis: "Voce: {0}", noregion: " – nessuna voce per {0} installata, uso una voce tedesca",
+    novoice: "Nessuna voce {0} installata – uso la voce di sistema, la pronuncia potrebbe suonare errata.",
+    transfail: "Traduzione non riuscita (HTTP {0})", error: "Errore: {0} – parlo l'originale.", orig: "Originale", cached: " · traduzione dal database" },
+  fr: { delete: "Supprimer le message", settings: "Réglages", uilang: "Langue de l'interface", theme_light: "Passer au thème clair", theme_dark: "Passer au thème sombre",
+    src: "Langue de saisie", dst: "Parler en", region: "Variante allemande", at: "Autriche", ch: "Suisse", de: "Allemagne",
+    voice: "Voix", male: "masculine", female: "féminine", voicefor: "Voix pour", concrete: "Voix précise", found: "({0} trouvées)", auto: "Automatique (selon le genre)",
+    rate: "Débit", ph: "Saisir une phrase …", sentence: "Phrase", speak: "Parler",
+    k_sel: "choisir", k_tab1: "reprendre la suggestion", k_tab2: "parler", k_enter: "dire le texte", k_esc: "arrêter ou effacer",
+    history: "Historique", export: "Exporter", clear: "Supprimer tous les messages", confirm_clear: "Supprimer vraiment tous les messages et toutes les traductions enregistrées de la base de données ? Action irréversible.",
+    about: `Recommandé : l'installer sur votre propre ordinateur (instructions sur ${link("GitHub")}). Phrases et traductions restent alors dans votre propre base de données, sans compte ni suivi. Seule la traduction envoie une phrase à Google Translate (sauf si elle est déjà dans la base).`,
+    dberr: "Base de données injoignable – lancez l'interface web avec `uv run talk4me serve`, sinon rien n'est enregistré.",
+    voiceis: "Voix : {0}", noregion: " – aucune voix pour {0} installée, voix allemande utilisée",
+    novoice: "Aucune voix {0} installée – voix du système utilisée, la prononciation peut sembler fausse.",
+    transfail: "Échec de la traduction (HTTP {0})", error: "Erreur : {0} – lecture de l'original.", orig: "Original", cached: " · traduction issue de la base de données" },
+  hu: { delete: "Üzenet törlése", settings: "Beállítások", uilang: "A felület nyelve", theme_light: "Váltás világos témára", theme_dark: "Váltás sötét témára",
+    src: "Beviteli nyelv", dst: "Beszéd nyelve", region: "Német változat", at: "Ausztria", ch: "Svájc", de: "Németország",
+    voice: "Hang", male: "férfi", female: "női", voicefor: "Hang ehhez", concrete: "Konkrét hang", found: "({0} találat)", auto: "Automatikus (nem szerint)",
+    rate: "Tempó", ph: "Írj be egy mondatot …", sentence: "Mondat", speak: "Beszél",
+    k_sel: "választ", k_tab1: "javaslat átvétele", k_tab2: "beszél", k_enter: "szöveg felolvasása", k_esc: "leállít vagy töröl",
+    history: "Előzmények", export: "Exportálás", clear: "Minden üzenet törlése", confirm_clear: "Tényleg törlöd az összes üzenetet és az összes mentett fordítást az adatbázisból? Ez nem vonható vissza.",
+    about: `Ajánlott: telepítsd a saját gépedre (útmutató: ${link("GitHub")}). Így a mondatok és fordítások csak a saját adatbázisodban maradnak, fiók és követés nélkül. Csak fordításkor kerül egy mondat a Google Fordítóhoz (kivéve, ha már szerepel az adatbázisban).`,
+    dberr: "Az adatbázis nem érhető el – indítsd a webes felületet a `uv run talk4me serve` paranccsal, különben semmi nem mentődik.",
+    voiceis: "Hang: {0}", noregion: " – nincs telepítve hang ehhez: {0}, német hangot használok",
+    novoice: "Nincs telepítve {0} hang – a rendszerhangot használom, a kiejtés hibásnak hangozhat.",
+    transfail: "A fordítás sikertelen (HTTP {0})", error: "Hiba: {0} – az eredetit mondom.", orig: "Eredeti", cached: " · fordítás az adatbázisból" },
+  ja: { delete: "メッセージを削除", settings: "設定", uilang: "表示言語", theme_light: "ライトテーマに切り替え", theme_dark: "ダークテーマに切り替え",
+    src: "入力言語", dst: "読み上げ言語", region: "ドイツ語の種類", at: "オーストリア", ch: "スイス", de: "ドイツ",
+    voice: "音声", male: "男性", female: "女性", voicefor: "音声の言語", concrete: "指定の音声", found: "（{0}件）", auto: "自動（性別で選択）",
+    rate: "速度", ph: "文章を入力 …", sentence: "文章", speak: "話す",
+    k_sel: "選択", k_tab1: "候補を取り込む", k_tab2: "話す", k_enter: "テキストを話す", k_esc: "停止またはクリア",
+    history: "履歴", export: "エクスポート", clear: "すべてのメッセージを削除", confirm_clear: "すべてのメッセージと保存済みの翻訳をデータベースから本当に削除しますか？ 元に戻せません。",
+    about: `おすすめ：ご自身のパソコンにインストールしてください（手順は ${link("GitHub")}）。文章と翻訳は自分のデータベースにのみ保存され、アカウントも追跡もありません。翻訳のときだけ、文章が Google 翻訳に送られます（すでにデータベースにある場合を除く）。`,
+    dberr: "データベースに接続できません – `uv run talk4me serve` でウェブUIを起動してください。起動しないと何も保存されません。",
+    voiceis: "音声：{0}", noregion: " – {0} の音声が未インストールのため、ドイツ語の音声を使います",
+    novoice: "{0}の音声がインストールされていません – システム音声を使うため、発音が不自然になることがあります。",
+    transfail: "翻訳に失敗しました（HTTP {0}）", error: "エラー：{0} – 原文を読み上げます。", orig: "原文", cached: " · データベースからの翻訳" },
+  es: { delete: "Eliminar mensaje", settings: "Ajustes", uilang: "Idioma de la interfaz", theme_light: "Cambiar al tema claro", theme_dark: "Cambiar al tema oscuro",
+    src: "Idioma de entrada", dst: "Hablar en", region: "Variante alemana", at: "Austria", ch: "Suiza", de: "Alemania",
+    voice: "Voz", male: "masculina", female: "femenina", voicefor: "Voz para", concrete: "Voz concreta", found: "({0} encontradas)", auto: "Automática (según género)",
+    rate: "Velocidad", ph: "Escribe una frase …", sentence: "Frase", speak: "Hablar",
+    k_sel: "elegir", k_tab1: "usar la sugerencia", k_tab2: "hablar", k_enter: "decir el texto", k_esc: "parar o borrar",
+    history: "Historial", export: "Exportar", clear: "Eliminar todos los mensajes", confirm_clear: "¿Eliminar de verdad todos los mensajes y todas las traducciones guardadas de la base de datos? No se puede deshacer.",
+    about: `Recomendado: instálalo en tu propio ordenador (instrucciones en ${link("GitHub")}). Así las frases y traducciones quedan solo en tu base de datos, sin cuenta ni rastreo. Solo para traducir, una frase se envía a Google Translate (salvo que ya esté en la base de datos).`,
+    dberr: "Base de datos no accesible – inicia la interfaz web con `uv run talk4me serve`, si no, no se guarda nada.",
+    voiceis: "Voz: {0}", noregion: " – no hay voz instalada para {0}, se usa una voz alemana",
+    novoice: "No hay voz de {0} instalada – se usa la voz del sistema, la pronunciación puede sonar mal.",
+    transfail: "Error de traducción (HTTP {0})", error: "Error: {0} – se dice el original.", orig: "Original", cached: " · traducción de la base de datos" },
+  ru: { delete: "Удалить сообщение", settings: "Настройки", uilang: "Язык интерфейса", theme_light: "Перейти на светлую тему", theme_dark: "Перейти на тёмную тему",
+    src: "Язык ввода", dst: "Говорить на", region: "Вариант немецкого", at: "Австрия", ch: "Швейцария", de: "Германия",
+    voice: "Голос", male: "мужской", female: "женский", voicefor: "Голос для", concrete: "Конкретный голос", found: "(найдено: {0})", auto: "Автоматически (по полу)",
+    rate: "Скорость", ph: "Введите фразу …", sentence: "Фраза", speak: "Говорить",
+    k_sel: "выбрать", k_tab1: "взять подсказку", k_tab2: "говорить", k_enter: "произнести текст", k_esc: "остановить или очистить",
+    history: "История", export: "Экспорт", clear: "Удалить все сообщения", confirm_clear: "Действительно удалить из базы данных все сообщения и все сохранённые переводы? Это нельзя отменить.",
+    about: `Рекомендация: установите программу на свой компьютер (инструкция на ${link("GitHub")}). Тогда фразы и переводы хранятся только в вашей базе данных, без учётной записи и слежки. Только для перевода фраза отправляется в Google Translate (если её ещё нет в базе).`,
+    dberr: "База данных недоступна – запустите веб-интерфейс командой `uv run talk4me serve`, иначе ничего не сохранится.",
+    voiceis: "Голос: {0}", noregion: " – нет установленного голоса для {0}, используется немецкий голос",
+    novoice: "Голос для языка «{0}» не установлен – используется системный голос, произношение может звучать неверно.",
+    transfail: "Ошибка перевода (HTTP {0})", error: "Ошибка: {0} – произношу оригинал.", orig: "Оригинал", cached: " · перевод из базы данных" },
+  zh: { delete: "删除消息", settings: "设置", uilang: "界面语言", theme_light: "切换到浅色主题", theme_dark: "切换到深色主题",
+    src: "输入语言", dst: "朗读语言", region: "德语变体", at: "奥地利", ch: "瑞士", de: "德国",
+    voice: "语音", male: "男声", female: "女声", voicefor: "语音语言", concrete: "指定语音", found: "（找到 {0} 个）", auto: "自动（按性别）",
+    rate: "语速", ph: "输入一句话 …", sentence: "句子", speak: "朗读",
+    k_sel: "选择", k_tab1: "采用建议", k_tab2: "朗读", k_enter: "朗读文本", k_esc: "停止或清空",
+    history: "历史", export: "导出", clear: "删除所有消息", confirm_clear: "确定要从数据库中删除所有消息和所有已保存的翻译吗？此操作无法撤销。",
+    about: `推荐：安装在自己的电脑上（说明见 ${link("GitHub")}）。这样句子和翻译只保存在自己的数据库中，无需账号，也没有跟踪。仅在翻译时，句子会发送到 Google 翻译（数据库中已有的除外）。`,
+    dberr: "无法连接数据库 – 请用 `uv run talk4me serve` 启动网页界面，否则不会保存任何内容。",
+    voiceis: "语音：{0}", noregion: " – 未安装 {0} 的语音，改用德语语音",
+    novoice: "未安装{0}语音 – 将使用系统语音，发音可能不准确。",
+    transfail: "翻译失败（HTTP {0}）", error: "错误：{0} – 朗读原文。", orig: "原文", cached: " · 来自数据库的翻译" },
+};
+let ui = "de";
+try { ui = localStorage.getItem("talk4me.ui"); } catch {}
+if (!I18N[ui]) ui = I18N[(navigator.language || "").slice(0, 2)] ? navigator.language.slice(0, 2) : "de";
+const t = (k, ...a) => (I18N[ui][k] ?? I18N.de[k]).replace(/\{(\d)\}/g, (_, i) => a[i]);
+
 const API = "/api/sentences"; // SQLite-Server: `uv run talk4me serve`
 const $ = id => document.getElementById(id);
 
@@ -186,8 +350,7 @@ let sugg = [], sel = 0, speaking = 0;
 const api = (method, body, url = API) => fetch(url, {
   method, body: body && JSON.stringify(body),
 }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r; });
-const dbError = () => $("status").textContent =
-  "Datenbank nicht erreichbar – Web-UI mit `uv run talk4me serve` starten, sonst wird nichts gespeichert.";
+const dbError = () => $("status").textContent = t("dberr");
 
 const reload = () => api("GET").then(r => r.json()).then(l => { log = l; renderLog(); refresh(); }).catch(dbError);
 reload();
@@ -223,14 +386,25 @@ async function translate(text, from, to) {
   // inoffizieller, keyloser Google-Endpunkt; Antwort: [[[übersetzt, original, …], …], …]
   // Gleiche Sprache: Umweg über eine Zwischensprache (Hin- und Rückübersetzung), das glättet die Grammatik
   const gtx = async (t, sl, tl) => {
-    const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=${sl}&tl=${tl}&q=` + encodeURIComponent(t));
-    if (!r.ok) throw new Error("Übersetzung fehlgeschlagen (HTTP " + r.status + ")");
+    const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=${GTX[sl] || sl}&tl=${GTX[tl] || tl}&q=` + encodeURIComponent(t));
+    if (!r.ok) throw new Error(t("transfail", r.status));
     return (await r.json())[0].map(s => s[0]).join("");
   };
   const pivot = from === "en" ? "de" : "en";
   const translation = from === to ? await gtx(await gtx(text, from, pivot), pivot, to) : await gtx(text, from, to);
   api("POST", { text, to, translation }, "/api/translation").catch(dbError);
   return { text: translation };
+}
+
+// Lateinische Umschrift (Rōmaji) eines japanischen Textes: Google liefert sie mit dt=rm als Lesung des Quelltexts
+// (letzter Eintrag der Antwort: [null, null, Umschrift der Übersetzung, Umschrift des Originals]). Fehlt sie, kommt "".
+const ROMAN = new Set(["ja", "ru", "zh"]); // Sprachen mit Umschrift (Rōmaji, Latinisierung, Pinyin)
+async function romaji(text, lang = "ja") {
+  try {
+    const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&dt=rm&sl=${GTX[lang] || lang}&tl=en&q=` + encodeURIComponent(text));
+    if (!r.ok) return "";
+    return (await r.json())[0].map(e => typeof e[3] === "string" ? e[3] : "").join(" ").trim();
+  } catch { return ""; }
 }
 
 // Web Speech kennt kein Geschlecht -> bekannte Stimmen nach Namen, bevorzugt in dieser Reihenfolge (m = männlich, f = weiblich).
@@ -242,20 +416,29 @@ const VOICES = {
     en: ["Daniel", "Aaron", "Arthur", "Evan", "Nathan", "Gordon", "Oliver", "Guy", "Ryan", "Davis", "George", "Mark", "Reed", "Eddy", "Rocko", "Grandpa"],
     it: ["Luca", "Cosimo", "Diego", "Giorgio", "Reed", "Eddy", "Rocko", "Grandpa"],
     fr: ["Thomas", "Jacques", "Antoine", "Henri", "Paul", "Claude", "Nicolas", "Mathieu", "Reed", "Eddy", "Rocko", "Grandpa"],
+    hu: ["Tamás", "Reed", "Eddy", "Rocko", "Grandpa"],
+    ja: ["Otoya", "Hattori", "Ichiro", "Keita", "Reed", "Eddy", "Rocko", "Grandpa"],
+    es: ["Jorge", "Diego", "Juan", "Carlos", "Alvaro", "Pablo", "Enrique", "Reed", "Eddy", "Rocko", "Grandpa"],
+    ru: ["Yuri", "Dmitry", "Pavel", "Reed", "Eddy", "Rocko", "Grandpa"],
+    zh: ["Yunxi", "Yunjian", "Kangkang", "Li-mu", "Yunyang", "Reed", "Eddy", "Rocko", "Grandpa"],
   },
   f: {
     de: ["Ingrid", "Leni", "Anna", "Petra", "Helena", "Katja", "Hedda", "Amala", "Flo", "Sandy", "Shelley", "Grandma"],
     en: ["Samantha", "Ava", "Allison", "Susan", "Serena", "Kate", "Karen", "Moira", "Tessa", "Fiona", "Zoe", "Aria", "Jenny", "Flo", "Sandy", "Shelley", "Grandma"],
     it: ["Alice", "Federica", "Paola", "Emma", "Elsa", "Isabella", "Flo", "Sandy", "Shelley", "Grandma"],
     fr: ["Amélie", "Audrey", "Aurélie", "Marie", "Denise", "Julie", "Flo", "Sandy", "Shelley", "Grandma"],
+    hu: ["Mariska", "Noémi", "Flo", "Sandy", "Shelley", "Grandma"],
+    ja: ["Kyoko", "O-Ren", "Nanami", "Haruka", "Ayumi", "Sayaka", "Flo", "Sandy", "Shelley", "Grandma"],
+    es: ["Monica", "Paulina", "Marisol", "Elvira", "Helena", "Laura", "Flo", "Sandy", "Shelley", "Grandma"],
+    ru: ["Milena", "Katya", "Svetlana", "Irina", "Tatyana", "Flo", "Sandy", "Shelley", "Grandma"],
+    zh: ["Tingting", "Xiaoxiao", "Xiaoyi", "Meijia", "Huihui", "Yaoyao", "Flo", "Sandy", "Shelley", "Grandma"],
   },
 };
-const GENDER = { m: "männliche", f: "weibliche" };
 
 function pickVoice(lang) {
   const chosen = speechSynthesis.getVoices().find(v => v.voiceURI === voiceChoice[lang]);
   if (chosen) return chosen;
-  const all = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().startsWith(lang));
+  const all = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === lang);
   // Deutsch: Stimmen der gewählten Variante zuerst (de-AT: Jonas/Ingrid, de-CH: Jan/Leni, jeweils in Edge), sonst alle deutschen
   const pools = lang === "de" ? [all.filter(v => v.lang.replace("_", "-").toLowerCase() === "de-" + $("region").value), all] : [all];
   for (const vs of pools)
@@ -265,6 +448,8 @@ function pickVoice(lang) {
       const v = hits.find(v => /premium|enhanced|erweitert/i.test(v.name)) || hits[0];
       if (v) return v;
     }
+  // keine Namenstreffer: trotzdem eine Stimme der Zielsprache (lieber lokal), nie eine fremdsprachige
+  return all.find(v => v.localService) || all[0];
 }
 
 let current = null, bubbleTimer;
@@ -273,17 +458,36 @@ function bubble(on) { // Sprechblase an/aus; spätestens nach 10 s verschwindet 
   $("bubble").classList.toggle("show", on);
   if (on) bubbleTimer = setTimeout(() => bubble(false), 10000);
 }
+// Piper-Stimmen des Servers ({lang: [m, f]}, leer ohne Piper): bevorzugt, solange keine konkrete Browser-Stimme gewählt ist
+let piper = {}, audio = null;
+fetch("/api/tts/voices").then(r => r.json()).then(v => { piper = v; fillVoices(); }).catch(() => {});
+const stopAudio = () => { if (audio) { const a = audio; audio = null; a.pause(); a.dispatchEvent(new Event("ended")); } };
+function speakPiper(text, lang) {
+  const g = $("gender").value, have = piper[lang];
+  const a = audio = new Audio("/api/tts?" + new URLSearchParams({ text, lang, gender: g, rate: $("rate").value / 100 }));
+  $("status").textContent = t("voiceis", "Piper (" + (have.includes(g) ? have : have[0]) + ")");
+  $("bubble").textContent = text;
+  const done = () => { if (audio === a || !audio) audio = null; $("card").classList.remove("speaking"); bubble(false); };
+  a.onplaying = () => ($("card").classList.add("speaking"), bubble(true));
+  a.onended = a.onerror = done;
+  a.play().catch(() => { done(); speakBrowser(text, lang); });
+}
 function speak(text, lang) {
   speechSynthesis.cancel();
+  stopAudio();
+  if (piper[lang] && !voiceChoice[lang]) return speakPiper(text, lang);
+  speakBrowser(text, lang);
+}
+function speakBrowser(text, lang) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang === "de" ? "de-" + $("region").value.toUpperCase() : BCP47[lang];
   u.rate = $("rate").value / 100;
   const v = pickVoice(lang);
   if (v) { u.voice = v; u.lang = v.lang; 
-    $("status").textContent = "Stimme: " + v.name + (lang === "de" && v.lang.replace("_", "-").toLowerCase() !== "de-" + $("region").value
-      ? ` – keine Stimme für ${$("region").selectedOptions[0].text} installiert, deutsche Stimme wird verwendet` : ""); }
+    $("status").textContent = t("voiceis", v.name) + (lang === "de" && v.lang.replace("_", "-").toLowerCase() !== "de-" + $("region").value
+      ? t("noregion", $("region").selectedOptions[0].text) : ""); }
   else if (speechSynthesis.getVoices().length)
-    $("status").textContent = `Keine ${GENDER[$("gender").value]} ${LANGS[lang]}-Stimme gefunden (gesucht: ${VOICES[$("gender").value][lang].slice(0, 4).join(", ")} …) – Systemstimme wird verwendet.`;
+    $("status").textContent = t("novoice", LANGS[lang]);
   current = u; // Pegelanzeige nur für die jüngste Ausgabe (cancel() meldet die alte verspätet als beendet)
   $("bubble").textContent = text;
   u.onstart = () => current === u && ($("card").classList.add("speaking"), bubble(true));
@@ -304,16 +508,25 @@ async function say(text, from) {
       ({ text: out, cached } = await translate(text, from, to));
   } catch (e) {
     if (id !== speaking) return;
-    $("status").textContent = "Fehler: " + e.message + " – spreche Original.";
+    $("status").textContent = t("error", e.message);
   }
   if (id !== speaking) return;
   const spokenLang = out === text ? from : to;
   // Unverändertes Ergebnis: Original nicht extra zeigen, nur den gesprochenen Satz
   const translated = out !== text;
   $("out").innerHTML = (translated ? `<div class="muted"></div>` : "") + `<div class="tr"></div>`;
-  if (translated) $("out").firstChild.textContent = `${from === to ? "Original" : LANGS[from]}: ${text}` + (cached ? " · Übersetzung aus der Datenbank" : "");
+  if (translated) $("out").firstChild.textContent = `${from === to ? t("orig") : LANGS[from]}: ${text}` + (cached ? t("cached") : "");
   $("out").lastChild.textContent = out;
   speak(out, spokenLang);
+  // Japanisch/Russisch/Chinesisch: Umschrift nachladen und unter den gesprochenen Satz setzen (beim Original an die graue Zeile hängen)
+  if (ROMAN.has(spokenLang)) romaji(out, spokenLang).then(r => {
+    if (!r || id !== speaking) return;
+    $("out").append(Object.assign(document.createElement("div"), { className: "romaji", textContent: r }));
+  });
+  if (translated && ROMAN.has(from)) romaji(text, from).then(r => {
+    if (!r || id !== speaking || !$("out").firstChild) return;
+    $("out").firstChild.textContent += " (" + r + ")";
+  });
 }
 
 // ---------- UI ----------
@@ -326,6 +539,10 @@ function renderList(el, items, selIdx) {
     b.textContent = (e.via ? `≈ ${e.via} · ` : "") + `${e.lang} ${e.count}×`;
     li.append(a, b);
     if (i === selIdx) li.append(Object.assign(document.createElement("kbd"), { textContent: "Tab" }));
+    const del = Object.assign(document.createElement("button"), { type: "button", className: "del", textContent: "×", title: t("delete") });
+    del.setAttribute("aria-label", t("delete") + ": " + e.text);
+    del.onclick = ev => { ev.stopPropagation(); remove(e.text); };
+    li.append(del);
     return li;
   }));
 }
@@ -346,6 +563,10 @@ function renderLog() {
   $("hcount").textContent = log.length;
   renderList($("log"), log.slice(0, 15), -1);
   [...$("log").children].forEach((li, i) => li.onclick = () => take(i, log[i]));
+}
+
+function remove(text) {
+  api("DELETE", null, API + "?text=" + encodeURIComponent(text)).then(reload).catch(dbError);
 }
 
 function take(i, e = sugg[i]) {
@@ -389,6 +610,7 @@ document.addEventListener("keydown", e => {
     const busy = speechSynthesis.speaking || speechSynthesis.pending;
     speaking++; // noch ausstehende Übersetzung nicht mehr sprechen
     speechSynthesis.cancel();
+    if (audio) { stopAudio(); return; }
     if (!busy) { $("q").value = ""; sel = 0; refresh(); }
   }
   else if (e.key.length === 1 && t !== "INPUT") $("q").focus(); // Tippen landet im Eingabefeld
@@ -402,9 +624,13 @@ function go() {
 }
 $("go").onclick = () => { go(); $("q").focus(); };
 
-$("clear").onclick = () => { api("DELETE").then(() => { log = []; renderLog(); refresh(); }).catch(dbError); };
+$("clear").onclick = () => { if (!confirm(t("confirm_clear"))) return; api("DELETE").then(() => { log = []; renderLog(); refresh(); }).catch(dbError); };
 $("export").onclick = () => {
-  const txt = log.map(e => [e.first_used, e.last_used, e.count, e.lang, e.text].join("\t")).join("\n");
+  // eine Spalte je Sprache mit der gespeicherten Übersetzung (leer, wenn es keine gibt); Tabs/Zeilenumbrüche im Text würden die Spalten verschieben
+  const cell = x => String(x ?? "").replace(/[\t\r\n]+/g, " "), codes = Object.keys(LANGS);
+  const txt = [["first_used", "last_used", "count", "lang", "text", ...codes.map(c => "tr_" + c)],
+    ...log.map(e => [e.first_used, e.last_used, e.count, e.lang, e.text, ...codes.map(c => e.translations?.[c])])]
+    .map(r => r.map(cell).join("\t")).join("\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain" }));
   a.download = "talk4me-log.tsv";
@@ -418,21 +644,81 @@ for (const [c, n] of Object.entries(LANGS)) $("vlang").add(new Option(n, c));
 $("vlang").value = $("dst").value;
 function fillVoices() {
   const l = $("vlang").value, sel = $("voice");
-  const vs = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().startsWith(l))
+  const vs = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === l)
     .sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
   sel.length = 0;
-  sel.add(new Option("Automatisch (nach Geschlecht)", ""));
+  sel.add(new Option(t("auto") + (piper[l] ? " · Piper" : ""), ""));
   for (const v of vs) sel.add(new Option(`${v.name} (${v.lang})`, v.voiceURI));
   sel.value = voiceChoice[l] || ""; if (sel.value !== (voiceChoice[l] || "")) sel.value = "";
-  $("vcount").textContent = `(${vs.length} gefunden)`;
+  $("vcount").textContent = t("found", vs.length);
 }
 $("vlang").onchange = fillVoices;
+$("dst").addEventListener("change", () => { $("vlang").value = $("dst").value; fillVoices(); });
 $("voice").onchange = () => {
   voiceChoice[$("vlang").value] = $("voice").value;
   try { localStorage.setItem("talk4me.voices", JSON.stringify(voiceChoice)); } catch {}
 };
 speechSynthesis.onvoiceschanged = fillVoices; // Stimmenliste lädt asynchron
 fillVoices();
+
+// ---------- Oberflächensprache und Design ----------
+function applyI18n() {
+  document.documentElement.lang = ui;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of document.querySelectorAll("[data-i18n-ph]")) el.placeholder = t(el.dataset.i18nPh);
+  for (const el of document.querySelectorAll("[data-i18n-aria]")) el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  for (const b of $("flags").children) b.setAttribute("aria-pressed", b.dataset.lang === ui);
+  $("status").textContent = "";
+  fillVoices();
+  showTheme();
+}
+for (const [c, n] of Object.entries(LANGS)) {
+  const b = Object.assign(document.createElement("button"), { type: "button", innerHTML: flagSvg(c), title: n });
+  b.dataset.lang = c;
+  b.onclick = () => { ui = c; try { localStorage.setItem("talk4me.ui", c); } catch {} applyI18n(); };
+  $("flags").append(b);
+}
+function picker(id, sel, key) {
+  const root = $(id), btn = document.createElement("button"), menu = document.createElement("div");
+  btn.type = "button"; btn.className = "pk"; btn.dataset.i18nAria = key; btn.setAttribute("aria-haspopup", "listbox");
+  menu.className = "pkmenu"; menu.hidden = true; menu.setAttribute("role", "listbox");
+  const show = () => {
+    btn.innerHTML = flagSvg(sel.value) + "▾";
+    btn.title = LANGS[sel.value];
+    for (const o of menu.children) o.setAttribute("aria-selected", o.dataset.lang === sel.value);
+  };
+  const close = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  for (const [c, n] of Object.entries(LANGS)) {
+    const o = document.createElement("button");
+    o.type = "button"; o.dataset.lang = c; o.setAttribute("role", "option"); o.innerHTML = flagSvg(c) + n;
+    o.onclick = () => { sel.value = c; sel.onchange && sel.onchange(); show(); close(); $("q").focus(); };
+    menu.append(o);
+  }
+  btn.onclick = () => { const open = menu.hidden; closeAll(); menu.hidden = !open; btn.setAttribute("aria-expanded", String(open)); };
+  root.addEventListener("keydown", e => { if (e.key === "Escape" && !menu.hidden) { e.stopPropagation(); close(); btn.focus(); } });
+  root.append(btn, menu);
+  root.close = close;
+  show();
+}
+const closeAll = () => document.querySelectorAll(".picker").forEach(r => r.close());
+document.addEventListener("click", e => { if (!e.target.closest(".picker")) closeAll(); });
+picker("pk-src", $("src"), "src");
+picker("pk-dst", $("dst"), "dst");
+const dark = () => ({ dark: true, light: false })[document.documentElement.dataset.theme] ?? matchMedia("(prefers-color-scheme: dark)").matches;
+function showTheme() { // zeigt das Ziel des Umschaltens
+  $("theme").textContent = dark() ? "☀️" : "🌙";
+  $("theme").title = $("theme").ariaLabel = t(dark() ? "theme_light" : "theme_dark");
+}
+try { const th = localStorage.getItem("talk4me.theme"); if (th) document.documentElement.dataset.theme = th; } catch {}
+$("theme").onclick = () => {
+  const th = dark() ? "light" : "dark";
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem("talk4me.theme", th); } catch {}
+  showTheme();
+};
+matchMedia("(prefers-color-scheme: dark)").onchange = showTheme;
+applyI18n();
 </script>
 </body>
 </html>

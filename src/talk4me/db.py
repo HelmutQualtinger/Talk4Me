@@ -59,10 +59,14 @@ def add(text, lang="de"):
 
 
 def all():
-    """Alle Sätze, zuletzt verwendet zuerst."""
+    """Alle Sätze, zuletzt verwendet zuerst, jeweils mit ihren gespeicherten Übersetzungen {lang: text}."""
     with closing(_connect()) as c:
-        return [{"text": t, "lang": l, "first_used": f, "last_used": u, "count": n} for t, l, f, u, n in
-                c.execute("SELECT text, lang, first_used, last_used, use_count FROM sentences "
+        tr = {}
+        for sid, l, t in c.execute("SELECT sentence_id, lang, text FROM translations"):
+            tr.setdefault(sid, {})[l] = t
+        return [{"text": t, "lang": l, "first_used": f, "last_used": u, "count": n, "translations": tr.get(i, {})}
+                for i, t, l, f, u, n in
+                c.execute("SELECT id, text, lang, first_used, last_used, use_count FROM sentences "
                           "ORDER BY last_used DESC, id DESC")]
 
 
@@ -88,8 +92,16 @@ def add_translation(text, dst, translated):
         return bool(row)
 
 
+def delete(text):
+    """Löscht einen Satz samt seinen gespeicherten Übersetzungen in allen Sprachen (FK ON DELETE CASCADE)."""
+    with closing(_connect()) as c, c:
+        c.execute("DELETE FROM translations WHERE sentence_id IN (SELECT id FROM sentences WHERE text = ?)", (text,))
+        return c.execute("DELETE FROM sentences WHERE text = ?", (text,)).rowcount > 0
+
+
 def clear():
     with closing(_connect()) as c, c:
+        c.execute("DELETE FROM translations")  # auch Übersetzungen in allen Sprachen, nicht nur per CASCADE
         c.execute("DELETE FROM sentences")
 
 

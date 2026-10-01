@@ -1,10 +1,10 @@
-"""Web-UI + JSON-API auf localhost: GET/POST/DELETE /api/sentences, GET /api/suggest?q=, GET/POST /api/translation."""
+"""Web-UI + JSON-API auf localhost: GET/POST/DELETE /api/sentences, GET /api/suggest?q=, GET/POST /api/translation, GET /api/tts[/voices] (Piper)."""
 import json, os, webbrowser
 from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import db
+from . import db, tts
 
 PAGE = Path(__file__).with_name("index.html")
 
@@ -26,6 +26,15 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/api/translation":  # ?text=&from=&to= -> {text: Übersetzung | null}
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             self._send(200, json.dumps({"text": db.translation(q.get("text", ""), q.get("from"), q.get("to"))}).encode())
+        elif u.path == "/api/tts/voices":  # {lang: [m, f]} der installierten Piper-Stimmen
+            self._send(200, json.dumps(tts.available()).encode())
+        elif u.path == "/api/tts":  # ?text=&lang=&gender=m|f&rate=1.0 -> audio/wav
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            try:
+                wav = tts.synth(q.get("text", ""), q.get("lang", ""), q.get("gender", "m"), float(q.get("rate", 1)))
+            except Exception:
+                wav = None
+            self._send(200, wav, "audio/wav") if wav else self._send(404)
         elif u.path in ("/", "/index.html"):
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
         else:
@@ -49,8 +58,12 @@ class Handler(BaseHTTPRequestHandler):
         self._send(204)
 
     def do_DELETE(self):
-        if self.path != "/api/sentences":
+        u = urlparse(self.path)
+        if u.path != "/api/sentences":
             return self._send(404)
+        text = parse_qs(u.query).get("text")  # ?text=… löscht einen Satz, sonst alle
+        if text:
+            return self._send(204 if db.delete(text[0]) else 404)
         db.clear()
         self._send(204)
 
