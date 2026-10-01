@@ -1,5 +1,5 @@
 """Web-UI + JSON-API auf localhost: GET/POST/DELETE /api/sentences, GET /api/suggest?q=, GET/POST /api/translation, GET /api/tts[/voices] (Piper)."""
-import json, os, webbrowser
+import json, os, threading, webbrowser
 from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -74,6 +74,7 @@ class Handler(BaseHTTPRequestHandler):
 def serve(port=8765):
     host = os.environ.get("TALK4ME_HOST", "127.0.0.1")  # im Container 0.0.0.0, sonst nur lokal
     srv = ThreadingHTTPServer((host, port), Handler)
+    threading.Thread(target=tts.ensure_voices, daemon=True).start()
     url = f"http://{host}:{port}/"
     print("Talk4Me läuft auf", url, "(Ctrl-C beendet)", flush=True)
     if host == "127.0.0.1":

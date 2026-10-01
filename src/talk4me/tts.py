@@ -1,5 +1,5 @@
 """Server-seitige Sprachausgabe mit Piper (nur im Docker-Image installiert; sonst ist alles leer und die Web-UI nimmt Browser-Stimmen)."""
-import io, os, threading, wave
+import io, os, threading, urllib.request, wave
 from pathlib import Path
 
 VOICE_DIR = Path(os.environ.get("TALK4ME_VOICES", "/voices"))
@@ -22,6 +22,31 @@ def _name(lang, gender):
     for n in (v.get(gender), *v.values()):
         if n and (VOICE_DIR / f"{n}.onnx").exists():
             return n
+
+
+def ensure_voices():
+    """Lädt fehlende Modelle von Hugging Face nach VOICE_DIR (läuft beim Serverstart im Hintergrund, Fehler werden nur gemeldet)."""
+    try:
+        import piper  # noqa: F401
+    except ImportError:
+        return
+    names = sorted({n for v in VOICES.values() for n in v.values()})
+    for name in names:
+        lang, speaker, quality = name.split("-")
+        base = f"https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang[:2]}/{lang}/{speaker}/{quality}/{name}"
+        for ext in (".onnx.json", ".onnx"):  # .onnx zuletzt: erst dann gilt die Stimme als vorhanden
+            dst = VOICE_DIR / (name + ext)
+            if dst.exists():
+                continue
+            try:
+                VOICE_DIR.mkdir(parents=True, exist_ok=True)
+                tmp = dst.with_suffix(dst.suffix + ".part")
+                urllib.request.urlretrieve(base + ext, tmp)
+                tmp.rename(dst)
+                print("Stimme geladen:", name, flush=True)
+            except Exception as e:
+                print("Stimme", name, "nicht geladen:", e, flush=True)
+                break
 
 
 def available():

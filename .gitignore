@@ -11,3 +11,6 @@ wheels/
 
 # Persönliche Satz-Datenbank
 data/
+
+# Piper-Stimmen (werden beim Start geladen)
+voices/

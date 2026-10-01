@@ -9,6 +9,7 @@ services:
       - "127.0.0.1:8765:8765"   # nur lokal erreichbar: die API hat keine Anmeldung
     volumes:
       - ./data:/data            # SQLite-Datenbank (dieselbe wie beim lokalen Start)
+      - ./voices:/voices        # Piper-Stimmen (~800 MB), fehlende lädt der Server beim Start nach
     networks:
       - reverse-proxy           # NPM erreicht den Container per Name: talk4me:8765
 
