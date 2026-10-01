@@ -9,8 +9,12 @@ authors = [
 requires-python = ">=3.13"
 dependencies = []
 
+[project.optional-dependencies]
+mixer = ["sounddevice>=0.5", "numpy>=2"]  # nur für talk4me-mixer
+
 [project.scripts]
 talk4me = "talk4me:main"
+talk4me-mixer = "talk4me.mixer:main"
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]

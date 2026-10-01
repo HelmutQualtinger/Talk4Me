@@ -1,0 +1,10 @@
+services:
+  talk4me:
+    build: .
+    image: talk4me
+    container_name: talk4me
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"   # nur lokal erreichbar: die API hat keine Anmeldung
+    volumes:
+      - ./data:/data            # SQLite-Datenbank (dieselbe wie beim lokalen Start)

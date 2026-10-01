@@ -1,5 +1,5 @@
 """Web-UI + JSON-API auf localhost: GET/POST/DELETE /api/sentences, GET /api/suggest?q=, GET/POST /api/translation."""
-import json, webbrowser
+import json, os, webbrowser
 from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -59,10 +59,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(port=8765):
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    url = f"http://127.0.0.1:{port}/"
-    print("Talk4Me läuft auf", url, "(Ctrl-C beendet)")
-    webbrowser.open(url)
+    host = os.environ.get("TALK4ME_HOST", "127.0.0.1")  # im Container 0.0.0.0, sonst nur lokal
+    srv = ThreadingHTTPServer((host, port), Handler)
+    url = f"http://{host}:{port}/"
+    print("Talk4Me läuft auf", url, "(Ctrl-C beendet)", flush=True)
+    if host == "127.0.0.1":
+        webbrowser.open(url)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

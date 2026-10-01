@@ -1,5 +1,6 @@
 """SQLite-Speicher + Suche, gemeinsam genutzt von Terminal-UI und Web-UI. Ein Satz = eine Zeile."""
 import math
+import os
 import shutil
 import sqlite3
 from contextlib import closing
@@ -7,7 +8,8 @@ from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 
-DB = Path(__file__).resolve().parents[2] / "data" / "talk4me.db"  # <Projekt>/data/
+DATA = Path(os.environ.get("TALK4ME_DATA") or Path(__file__).resolve().parents[2] / "data")  # Standard: <Projekt>/data/
+DB = DATA / "talk4me.db"
 OLD_DB = Path.home() / ".talk4me" / "talk4me.db"  # früherer Speicherort
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS sentences (
@@ -29,7 +31,7 @@ TRANSLATIONS = """CREATE TABLE IF NOT EXISTS translations (
 
 
 def _connect():
-    DB.parent.mkdir(exist_ok=True)
+    DB.parent.mkdir(parents=True, exist_ok=True)
     if not DB.exists() and OLD_DB.exists():
         shutil.move(OLD_DB, DB)
     c = sqlite3.connect(DB)
@@ -103,10 +105,21 @@ def _popularity(r):
     return 0.1 * math.log1p(r["count"]) + 0.2 * 0.5 ** (age / 7)
 
 
-def suggest(q, n=8):
-    """Leere Eingabe: die 5 zuletzt verwendeten Sätze. Sonst Fuzzy-Treffer (Schwelle 0.4) plus Popularitätsbonus."""
+def suggest(q, n=50):
+    """Leere Eingabe: die 50 zuletzt verwendeten Sätze. Sonst Fuzzy-Treffer (Schwelle 0.4) plus Popularitätsbonus."""
     q = q.strip().lower()
     if not q:
-        return all()[:5]  # jeder Satz steht nur einmal in der Tabelle
-    scored = [(f + _popularity(r), r) for r in all() if (f := _fuzzy(q, r["text"])) > 0.4]
+        return all()[:n]  # jeder Satz steht nur einmal in der Tabelle
+    with closing(_connect()) as c:
+        trans = {}  # Originaltext -> gespeicherte Übersetzungen, damit auch sie gefunden werden
+        for t, x in c.execute("SELECT s.text, t.text FROM translations t JOIN sentences s ON s.id = t.sentence_id"):
+            trans.setdefault(t, []).append(x)
+    scored = []
+    for r in all():
+        f, via = _fuzzy(q, r["text"]), None
+        for x in trans.get(r["text"], []):
+            if (g := _fuzzy(q, x)) > f:
+                f, via = g, x
+        if f > 0.4:
+            scored.append((f + _popularity(r), {**r, "via": via} if via else r))
     return [r for _, r in sorted(scored, key=lambda x: x[0], reverse=True)[:n]]

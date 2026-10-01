@@ -6,102 +6,148 @@
 <title>Talk4Me</title>
 <style>
   :root {
-    --bg: #f6f5f2; --panel: #fff; --text: #1d1d1b; --muted: #77756e;
-    --line: #dcdad3; --accent: #2a5bd7; --accent-text: #fff; --sel: #e6ecfb;
+    --paper: #e8edf0; --surface: #f9fbfc; --ink: #18212b; --muted: #62717d; --line: #cfd8de;
+    --accent: #0b6e5d; --accent-ink: #fff; --hl: #fdf1a8; --hl-ink: #18212b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #16171a; --panel: #1f2126; --text: #ecebe6; --muted: #8c8a84;
-      --line: #33363d; --accent: #6b8fef; --accent-text: #0e1116; --sel: #27304a;
+      --paper: #10171c; --surface: #18222a; --ink: #e7eef2; --muted: #8a9aa6; --line: #2b3944;
+      --accent: #47c9ae; --accent-ink: #06211b; --hl: #3b3813; --hl-ink: #f2ecb8;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 16px/1.4 system-ui, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 64px 16px 48px; }
-  h1 { font-size: 20px; margin: 0 0 16px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
-  select, input, button { font: inherit; color: var(--text); background: var(--panel);
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-  input { width: 100%; font-size: 18px; }
-  input[type=range] { width: 160px; padding: 0; border: 0; background: none; accent-color: var(--accent); }
-  button { cursor: pointer; background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  button.ghost { background: var(--panel); color: var(--text); border-color: var(--line); }
-  .grow { flex: 1; min-width: 220px; }
-  ul { list-style: none; margin: 8px 0 0; padding: 0; background: var(--panel);
-       border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 15px/1.35 ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 10px 16px 32px; }
+  h1 { display: flex; align-items: center; min-height: 34px; margin: 0 0 10px; padding-left: 44px;
+       font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+  @media (min-width: 760px) { h1 { padding-left: 0; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button, select, input { font: inherit; color: var(--ink); }
+  button { cursor: pointer; }
+  kbd { font: inherit; font-size: 11px; padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px;
+        border-radius: 4px; background: var(--surface); color: var(--ink); }
+
+  /* Eingabe */
+  .field { display: flex; overflow: hidden; background: var(--surface);
+           border: 1.5px solid var(--line); border-radius: 12px; }
+  .field:focus-within { border-color: var(--accent); }
+  #q { flex: 1; min-width: 0; padding: 10px 14px; border: 0; outline: 0; background: none; font-size: 20px; }
+  #go { padding: 0 18px; border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  /* Listen */
+  ul { list-style: none; margin: 0; padding: 0; }
   ul:empty { display: none; }
-  li { padding: 8px 12px; border-left: 3px solid transparent; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+  #sugg, #log { overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  #sugg { margin-top: 6px; max-height: 19rem; overflow-y: auto; }
+  li { display: flex; align-items: baseline; gap: 10px; padding: 6px 12px; cursor: pointer;
+       border-left: 3px solid transparent; }
   li + li { border-top: 1px solid var(--line); }
-  li.sel { background: var(--sel); border-left-color: var(--accent); font-weight: 600; }
-  li small, .muted { color: var(--muted); }
-  #out { margin: 16px 0; padding: 12px; border-left: 3px solid var(--accent); min-height: 3em; }
-  #out .tr { font-size: 20px; }
-  #status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
-  h2 { font-size: 14px; color: var(--muted); margin: 24px 0 4px; font-weight: 600; }
+  li > span { flex: 1; }
+  li small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  li.sel { background: var(--hl); color: var(--hl-ink); border-left-color: var(--accent); }
+  li.sel small { color: inherit; opacity: .7; }
+
+  /* Ergebnis: der gesprochene Satz, mit Pegelanzeige während der Wiedergabe */
+  #card { position: relative; margin-top: 10px; padding: 10px 44px 10px 14px; background: var(--surface);
+          border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; }
+  #card:has(#out:empty) { display: none; }
+  #out .muted { font-size: 13px; color: var(--muted); }
+  #out .tr { font-size: 24px; line-height: 1.25; font-weight: 600; }
+  .eq { position: absolute; top: 14px; right: 14px; display: flex; align-items: flex-end; gap: 2px;
+        height: 18px; opacity: 0; }
+  .eq i { width: 3px; height: 45%; border-radius: 2px; background: var(--accent); }
+  #card.speaking .eq { opacity: 1; }
+  #card.speaking .eq i { animation: eq .9s ease-in-out infinite; }
+  #card.speaking .eq i:nth-child(2) { animation-delay: .15s; }
+  #card.speaking .eq i:nth-child(3) { animation-delay: .3s; }
+  @keyframes eq { 50% { height: 100%; } }
+  @media (prefers-reduced-motion: reduce) { #card.speaking .eq i { animation: none; height: 80%; } }
+  #status { margin: 6px 2px 0; font-size: 12px; color: var(--muted); }
+  #status:empty { display: none; }
+
+  /* Tastenhinweise und Verlauf */
+  .keys { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 2px 0; font-size: 12px; color: var(--muted); }
+  details { margin-top: 16px; }
+  summary { width: fit-content; cursor: pointer; font-size: 13px; color: var(--muted); }
+  details ul { margin-top: 6px; }
+  .tools { display: flex; gap: 6px; margin-top: 8px; }
+  .tools button { padding: 4px 10px; font-size: 13px; background: var(--surface);
+                  border: 1px solid var(--line); border-radius: 8px; }
+
   /* Hamburger-Menü: Einstellungen erscheinen nur beim Darüberfahren (oder per Tastatur-Fokus) */
-  #menu { position: fixed; top: 12px; left: 12px; z-index: 10; }
-  #menu .burger { background: var(--panel); color: var(--text); border-color: var(--line);
-    font-size: 20px; line-height: 1; padding: 8px 12px; }
-  #menu .settings { display: none; position: absolute; top: 100%; left: 0; padding-top: 8px; }
+  #menu { position: fixed; top: 10px; left: 10px; z-index: 10; }
+  #menu .burger { width: 34px; height: 34px; padding: 0; font-size: 18px; line-height: 1;
+                  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  #menu .settings { display: none; position: absolute; top: 100%; left: 0; padding-top: 6px; }
   #menu:hover .settings, #menu:focus-within .settings { display: block; }
-  #menu .box { display: flex; flex-direction: column; gap: 12px; width: 260px; padding: 14px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-  #menu select, #menu input[type=range] { width: 100%; }
-  .hint { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  #menu .box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 270px; padding: 12px;
+               background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  #menu .wide { grid-column: 1 / -1; }
+  #menu label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+  #menu select { width: 100%; padding: 5px 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+  #menu input[type=range] { width: 100%; accent-color: var(--accent); }
 </style>
 </head>
 <body>
   <nav id="menu">
     <button class="burger" aria-label="Einstellungen" aria-haspopup="true">☰</button>
     <div class="settings"><div class="box">
-    <label>Eingabesprache
-      <select id="src"></select>
-    </label>
-    <label>Sprechen / übersetzen nach
-      <select id="dst"></select>
-    </label>
-    <label>Deutsch-Variante
-      <select id="region">
-        <option value="at">Österreich</option>
-        <option value="ch">Schweiz</option>
-        <option value="de">Deutschland</option>
-      </select>
-    </label>
-    <label>Stimme
-      <select id="gender">
-        <option value="m">männlich</option>
-        <option value="f">weiblich</option>
-      </select>
-    </label>
-    <label><span>Tempo: <span id="rateval"></span></span>
-      <input id="rate" type="range" min="80" max="150" step="5" value="100">
-    </label>
-  
+      <label>Eingabesprache <select id="src"></select></label>
+      <label>Sprechen in <select id="dst"></select></label>
+      <label>Deutsch-Variante
+        <select id="region">
+          <option value="at">Österreich</option>
+          <option value="ch">Schweiz</option>
+          <option value="de">Deutschland</option>
+        </select>
+      </label>
+      <label>Stimme
+        <select id="gender">
+          <option value="m">männlich</option>
+          <option value="f">weiblich</option>
+        </select>
+      </label>
+      <label>Stimme für <select id="vlang"></select></label>
+      <label>Konkrete Stimme <span id="vcount"></span>
+        <select id="voice"></select>
+      </label>
+      <label class="wide"><span>Tempo <span id="rateval"></span></span>
+        <input id="rate" type="range" min="80" max="150" step="5" value="100">
+      </label>
     </div></div>
   </nav>
 
 <main>
   <h1>Talk4Me</h1>
 
-  <div class="row">
-    <input id="q" class="grow" type="text" autocomplete="off" autofocus
-           placeholder="Satz eintippen …" aria-label="Satz">
+  <div class="field">
+    <input id="q" type="text" autocomplete="off" autofocus placeholder="Satz eintippen …" aria-label="Satz">
     <button id="go">Sprechen</button>
   </div>
   <ul id="sugg" role="listbox"></ul>
 
-  <div id="out"></div>
-  <div id="status"></div>
-  <div class="hint">Enter: sprechen · ↑/↓: Vorschlag wählen · Tab: Vorschlag übernehmen &amp; sprechen · Esc: Wiedergabe stoppen / Feld leeren</div>
-
-  <h2>Verlauf</h2>
-  <ul id="log"></ul>
-  <div class="row" style="margin-top:12px">
-    <button class="ghost" id="export">Log exportieren</button>
-    <button class="ghost" id="clear">Log löschen</button>
+  <div id="card">
+    <div id="out"></div>
+    <div class="eq" aria-hidden="true"><i></i><i></i><i></i></div>
   </div>
+  <div id="status"></div>
+
+  <div class="keys">
+    <span><kbd>↑</kbd> <kbd>↓</kbd> wählen</span>
+    <span><kbd>Tab</kbd> Vorschlag sprechen</span>
+    <span><kbd>Enter</kbd> Text sprechen</span>
+    <span><kbd>Esc</kbd> stoppen oder leeren</span>
+  </div>
+
+  <details>
+    <summary>Verlauf (<span id="hcount">0</span>)</summary>
+    <ul id="log"></ul>
+    <div class="tools">
+      <button id="export">Exportieren</button>
+      <button id="clear">Log löschen</button>
+    </div>
+  </details>
 </main>
 
 <script>
@@ -180,6 +226,8 @@ const VOICES = {
 const GENDER = { m: "männliche", f: "weibliche" };
 
 function pickVoice(lang) {
+  const chosen = speechSynthesis.getVoices().find(v => v.voiceURI === voiceChoice[lang]);
+  if (chosen) return chosen;
   const all = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().startsWith(lang));
   // Deutsch: Stimmen der gewählten Variante zuerst (de-AT: Jonas/Ingrid, de-CH: Jan/Leni, jeweils in Edge), sonst alle deutschen
   const pools = lang === "de" ? [all.filter(v => v.lang.replace("_", "-").toLowerCase() === "de-" + $("region").value), all] : [all];
@@ -192,6 +240,7 @@ function pickVoice(lang) {
     }
 }
 
+let current = null;
 function speak(text, lang) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -203,6 +252,9 @@ function speak(text, lang) {
       ? ` – keine Stimme für ${$("region").selectedOptions[0].text} installiert, deutsche Stimme wird verwendet` : ""); }
   else if (speechSynthesis.getVoices().length)
     $("status").textContent = `Keine ${GENDER[$("gender").value]} ${LANGS[lang]}-Stimme gefunden (gesucht: ${VOICES[$("gender").value][lang].slice(0, 4).join(", ")} …) – Systemstimme wird verwendet.`;
+  current = u; // Pegelanzeige nur für die jüngste Ausgabe (cancel() meldet die alte verspätet als beendet)
+  u.onstart = () => current === u && $("card").classList.add("speaking");
+  u.onend = u.onerror = () => current === u && $("card").classList.remove("speaking");
   speechSynthesis.speak(u);
 }
 
@@ -237,8 +289,9 @@ function renderList(el, items, selIdx) {
     if (i === selIdx) li.className = "sel";
     const a = document.createElement("span"), b = document.createElement("small");
     a.textContent = e.text;
-    b.textContent = `${LANGS[e.lang]} · ${e.count}×`;
+    b.textContent = (e.via ? `≈ ${e.via} · ` : "") + `${e.lang} ${e.count}×`;
     li.append(a, b);
+    if (i === selIdx) li.append(Object.assign(document.createElement("kbd"), { textContent: "Tab" }));
     return li;
   }));
 }
@@ -256,6 +309,7 @@ function refresh() {
 }
 
 function renderLog() {
+  $("hcount").textContent = log.length;
   renderList($("log"), log.slice(0, 15), -1);
   [...$("log").children].forEach((li, i) => li.onclick = () => take(i, log[i]));
 }
@@ -307,7 +361,28 @@ $("export").onclick = () => {
   a.click();
 };
 
-speechSynthesis.onvoiceschanged = () => {}; // Stimmenliste lädt asynchron
+// Stimmenwahl je Zielsprache: erst Sprache, dann die dazu gefundenen Stimmen
+let voiceChoice = {};
+try { voiceChoice = JSON.parse(localStorage.getItem("talk4me.voices")) || {}; } catch {}
+for (const [c, n] of Object.entries(LANGS)) $("vlang").add(new Option(n, c));
+$("vlang").value = $("dst").value;
+function fillVoices() {
+  const l = $("vlang").value, sel = $("voice");
+  const vs = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().startsWith(l))
+    .sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
+  sel.length = 0;
+  sel.add(new Option("Automatisch (nach Geschlecht)", ""));
+  for (const v of vs) sel.add(new Option(`${v.name} (${v.lang})`, v.voiceURI));
+  sel.value = voiceChoice[l] || ""; if (sel.value !== (voiceChoice[l] || "")) sel.value = "";
+  $("vcount").textContent = `(${vs.length} gefunden)`;
+}
+$("vlang").onchange = fillVoices;
+$("voice").onchange = () => {
+  voiceChoice[$("vlang").value] = $("voice").value;
+  try { localStorage.setItem("talk4me.voices", JSON.stringify(voiceChoice)); } catch {}
+};
+speechSynthesis.onvoiceschanged = fillVoices; // Stimmenliste lädt asynchron
+fillVoices();
 </script>
 </body>
 </html>
