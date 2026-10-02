@@ -177,6 +177,7 @@
     <p id="aintro"></p>
     <input id="aemail" type="email" autocomplete="username" required>
     <input id="apw" type="password" autocomplete="current-password" minlength="8">
+    <input id="apw2" type="password" autocomplete="new-password" minlength="8">
     <button id="asubmit" type="submit"></button>
     <div id="amsg" role="alert"></div>
     <p class="alinks"><a href="#" id="alink1"></a><a href="#" id="alink2"></a></p>
@@ -215,6 +216,7 @@
       <span class="look">
         <span class="picker" id="pk-emo" hidden></span><span class="picker" id="pk-voice"></span><span class="picker" id="pk-ui"></span>
         <button class="theme" id="theme" type="button"></button>
+        <button class="theme" id="logouttop" type="button" hidden>⏻</button>
       </span>
       <label class="rate"><span><span data-i18n="rate"></span> <span id="rateval"></span></span>
         <input id="rate" type="range" min="80" max="150" step="5" value="100">
@@ -505,6 +507,15 @@ const AUTH = {
   zh: { signin: "登录", email: "电子邮箱", password: "密码", noaccount: "还没有账户？注册", forgot: "忘记密码？", reg_title: "注册", reg_intro: "请输入你的电子邮箱。我们会发送一个链接，用于创建账户或设置新密码。", send_link: "发送链接", mail_sent: "我们已向你发送了一封邮件。请打开其中的链接继续。", set_title: "设置密码", pw_hint: "至少 8 个字符", create: "创建账户", back: "返回登录", bad_login: "邮箱或密码错误。", bad_email: "邮箱地址无效。", bad_link: "链接无效或已过期，请重新申请。", too_many: "尝试次数过多，请稍后再试。", logout: "退出登录", signed_in: "已登录：{0}" },
 };
 for (const [c, a] of Object.entries(AUTH)) Object.assign(I18N[c], a);
+Object.assign(I18N.de, { password2: "Passwort bestätigen", pw_mismatch: "Die Passwörter stimmen nicht überein." });
+Object.assign(I18N.en, { password2: "Confirm password", pw_mismatch: "The passwords do not match." });
+Object.assign(I18N.it, { password2: "Conferma la password", pw_mismatch: "Le password non coincidono." });
+Object.assign(I18N.fr, { password2: "Confirmez le mot de passe", pw_mismatch: "Les mots de passe ne correspondent pas." });
+Object.assign(I18N.hu, { password2: "Jelszó megerősítése", pw_mismatch: "A jelszavak nem egyeznek." });
+Object.assign(I18N.ja, { password2: "パスワードの確認", pw_mismatch: "パスワードが一致しません。" });
+Object.assign(I18N.es, { password2: "Confirmar contraseña", pw_mismatch: "Las contraseñas no coinciden." });
+Object.assign(I18N.ru, { password2: "Подтвердите пароль", pw_mismatch: "Пароли не совпадают." });
+Object.assign(I18N.zh, { password2: "确认密码", pw_mismatch: "两次输入的密码不一致。" });
 let ui = "de";
 try { ui = localStorage.getItem("talk4me.ui"); } catch {}
 if (!I18N[ui]) ui = I18N[(navigator.language || "").slice(0, 2)] ? navigator.language.slice(0, 2) : "de";
@@ -1048,6 +1059,7 @@ function showAuth(state, msg = "", ok = false) {
   $("aemail").hidden = !email; $("aemail").placeholder = t("email");
   $("apw").hidden = !pw; $("apw").placeholder = t("password");
   $("apw").autocomplete = state === "set" ? "new-password" : "current-password";
+  $("apw2").hidden = state !== "set"; $("apw2").placeholder = t("password2"); $("apw2").value = "";
   $("asubmit").hidden = state === "sent";
   $("asubmit").textContent = t({ login: "signin", register: "send_link", set: "create" }[state] || "signin");
   $("amsg").textContent = state === "sent" ? t("mail_sent") : msg;
@@ -1067,6 +1079,7 @@ $("authform").onsubmit = async e => {
       r.ok ? showAuth("sent") : showAuth("register", t(r.status === 429 ? "too_many" : "bad_email"));
     } else if (authState === "set") {
       if (pw.length < 8) return showAuth("set", t("pw_hint"));
+      if (pw !== $("apw2").value) return showAuth("set", t("pw_mismatch"));
       const r = await authPost("/api/verify", { token: verifyToken, password: pw });
       if (r.ok) location.reload(); else { verifyToken = null; authState = null; showAuth("login", t("bad_link")); }
     } else {
@@ -1075,8 +1088,10 @@ $("authform").onsubmit = async e => {
     }
   } catch { showAuth(authState, t("dberr")); }
 };
-$("logout").onclick = () => authPost("/api/logout", {}).then(() => location.reload());
-function showWho() { $("acct").hidden = !acctEmail; $("who").textContent = acctEmail ? t("signed_in", acctEmail) : ""; }
+$("logout").onclick = $("logouttop").onclick = () => authPost("/api/logout", {}).then(() => location.reload());
+function showWho() {
+  $("logouttop").hidden = !acctEmail; $("logouttop").title = $("logouttop").ariaLabel = t("logout");
+  $("acct").hidden = !acctEmail; $("who").textContent = acctEmail ? t("signed_in", acctEmail) : ""; }
 for (const [c, n] of Object.entries(LANGS)) $("alang").add(new Option(n, c));
 $("alang").onchange = () => { ui = $("alang").value; try { localStorage.setItem("talk4me.ui", ui); } catch {} applyI18n(); };
 rawFetch("/api/me").then(r => r.ok ? r.json() : r.status === 401 ? showAuth("login") : null).then(j => { if (j?.auth) { acctEmail = j.email; showWho(); } }).catch(() => {});
