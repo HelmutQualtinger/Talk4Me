@@ -12,7 +12,8 @@ from . import db
 ENABLED = os.environ.get("TALK4ME_AUTH") == "1"
 USERS_DB = db.DATA / "users.db"
 USER_DIR = db.DATA / "users"
-PENDING_TTL, SESSION_TTL = 24 * 3600, 30 * 24 * 3600
+GUEST_DIR = db.DATA / "guests"
+PENDING_TTL, SESSION_TTL, GUEST_TTL = 24 * 3600, 30 * 24 * 3600, 24 * 3600
 EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$")
 
 MAIL = {  # Sprache -> (Betreff, Text mit {0} = Link)
@@ -36,6 +37,7 @@ def _c():
     c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE, salt BLOB NOT NULL, pw BLOB NOT NULL, created INTEGER NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS pending (token TEXT PRIMARY KEY, email TEXT NOT NULL, expires INTEGER NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL)")
+    c.execute("CREATE TABLE IF NOT EXISTS guests (token TEXT PRIMARY KEY, gid TEXT NOT NULL, expires INTEGER NOT NULL)")
     c.execute("PRAGMA foreign_keys = ON")
     return c
 
@@ -144,15 +146,39 @@ def login(email, password):
         return _session(c, row[0]) if row and ok else None
 
 
+def guest():
+    """Gast ohne E-Mail und Passwort: eigene Datenbank, die mit dem Abmelden oder nach GUEST_TTL gelöscht wird. Liefert das Sitzungs-Token."""
+    token, gid = secrets.token_urlsafe(32), secrets.token_hex(8)
+    with closing(_c()) as c, c:
+        for (old,) in c.execute("DELETE FROM guests WHERE expires < ? RETURNING gid", (time.time(),)).fetchall():
+            _drop(old)
+        c.execute("INSERT INTO guests VALUES (?, ?, ?)", (_h(token), gid, time.time() + GUEST_TTL))
+    return token
+
+
+def _drop(gid):
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        (GUEST_DIR / f"{gid}.db{suffix}").unlink(missing_ok=True)
+
+
 def user_of(token):
-    """(id, email) zur Sitzung oder None."""
+    """{path, email, guest} der Sitzung oder None. Gäste haben email None."""
     if not token:
         return None
     with closing(_c()) as c:
-        return c.execute("SELECT u.id, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires > ?",
-                         (_h(token), time.time())).fetchone()
+        row = c.execute("SELECT u.id, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires > ?",
+                        (_h(token), time.time())).fetchone()
+        if row:
+            return {"path": user_db(row[0]), "email": row[1], "guest": False}
+        row = c.execute("SELECT gid FROM guests WHERE token = ? AND expires > ?", (_h(token), time.time())).fetchone()
+        if row:
+            GUEST_DIR.mkdir(parents=True, exist_ok=True)
+            return {"path": GUEST_DIR / f"{row[0]}.db", "email": None, "guest": True}
 
 
 def logout(token):
     with closing(_c()) as c, c:
         c.execute("DELETE FROM sessions WHERE token = ?", (_h(token or ""),))
+        row = c.execute("DELETE FROM guests WHERE token = ? RETURNING gid", (_h(token or ""),)).fetchone()
+        if row:  # Gast: Daten mit der Sitzung löschen
+            _drop(row[0])

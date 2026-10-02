@@ -26,10 +26,10 @@ class Handler(BaseHTTPRequestHandler):
             if k == "t4m":
                 return v
 
-    def _cookie(self, token):  # leeres Token löscht das Cookie
+    def _cookie(self, token, session_only=False):  # leeres Token löscht das Cookie; Gäste: Sitzungs-Cookie (endet mit dem Browser)
         secure = "; Secure" if self.headers.get("X-Forwarded-Proto") == "https" else ""
-        age = auth.SESSION_TTL if token else 0
-        return [("Set-Cookie", f"t4m={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={age}{secure}")]
+        age = "" if session_only and token else f"; Max-Age={auth.SESSION_TTL if token else 0}"
+        return [("Set-Cookie", f"t4m={token}; Path=/; HttpOnly; SameSite=Lax{age}{secure}")]
 
     def _ip(self):
         return self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
@@ -53,15 +53,19 @@ class Handler(BaseHTTPRequestHandler):
             if auth.ENABLED and not user:
                 self._send(401)
             else:
-                self._send(200, json.dumps({"auth": auth.ENABLED, "email": user[1] if user else None}).encode())
+                self._send(200, json.dumps({"auth": auth.ENABLED, "email": user and user["email"], "guest": bool(user and user["guest"])}).encode())
             return True
-        if not auth.ENABLED or method != "POST" or path not in ("/api/register", "/api/verify", "/api/login", "/api/logout"):
+        if not auth.ENABLED or method != "POST" or path not in ("/api/register", "/api/verify", "/api/login", "/api/logout", "/api/guest"):
             return False
         try:
-            d = {} if path == "/api/logout" else self._body()
+            d = {} if path in ("/api/logout", "/api/guest") else self._body()
             if path == "/api/logout":
                 auth.logout(self._token())
                 self._send(204, headers=self._cookie(""))
+            elif path == "/api/guest":
+                if auth.limited("guest:" + self._ip(), 10, 3600):
+                    return self._send(429) or True
+                self._send(204, headers=self._cookie(auth.guest(), session_only=True))
             elif path == "/api/register":
                 email = auth.norm(d.get("email"))
                 if not email:
@@ -95,7 +99,7 @@ class Handler(BaseHTTPRequestHandler):
             user = auth.user_of(self._token())
             if not user:
                 return self._send(401)
-            ctx = db.CURRENT.set(auth.user_db(user[0]))
+            ctx = db.CURRENT.set(user["path"])
             try:
                 return fn()
             finally:

@@ -148,6 +148,8 @@
   #authform input:focus { border-color: var(--accent); outline: 0; }
   #authform input[hidden], #authform p[hidden] { display: none; }
   #asubmit { padding: 10px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 15px; }
+  #aguest { padding: 9px; font-size: 14px; background: none; border: 1.5px solid var(--line); border-radius: 8px; }
+  #aguest[hidden] { display: none; }
   #amsg { min-height: 1.2em; font-size: 13px; color: #c0392b; }
   #amsg.ok { color: var(--accent); }
   .alinks { display: flex; flex-direction: column; gap: 4px; }
@@ -184,6 +186,8 @@
     <input id="apw2" type="password" autocomplete="new-password" minlength="8">
     <button id="asubmit" type="submit"></button>
     <div id="amsg" role="alert"></div>
+    <button id="aguest" type="button"></button>
+    <p id="aghint" style="font-size:12px"></p>
     <p class="alinks"><a href="#" id="alink1"></a><a href="#" id="alink2"></a></p>
   </form>
 </div>
@@ -513,6 +517,15 @@ const AUTH = {
   zh: { signin: "登录", email: "电子邮箱", password: "密码", noaccount: "还没有账户？注册", forgot: "忘记密码？", reg_title: "注册", reg_intro: "请输入你的电子邮箱。我们会发送一个链接，用于创建账户或设置新密码。", send_link: "发送链接", mail_sent: "我们已向你发送了一封邮件。请打开其中的链接继续。", set_title: "设置密码", pw_hint: "至少 8 个字符", create: "创建账户", back: "返回登录", bad_login: "邮箱或密码错误。", bad_email: "邮箱地址无效。", bad_link: "链接无效或已过期，请重新申请。", too_many: "尝试次数过多，请稍后再试。", logout: "退出登录", signed_in: "已登录：{0}" },
 };
 for (const [c, a] of Object.entries(AUTH)) Object.assign(I18N[c], a);
+Object.assign(I18N.de, { guest: "Als Gast fortfahren", guest_name: "Gast", guest_hint: "Gast: ohne Konto, die Daten werden beim Abmelden oder nach 24 Stunden gelöscht." });
+Object.assign(I18N.en, { guest: "Continue as guest", guest_name: "Guest", guest_hint: "Guest: no account, the data is deleted when you sign out or after 24 hours." });
+Object.assign(I18N.it, { guest: "Continua come ospite", guest_name: "Ospite", guest_hint: "Ospite: senza account, i dati vengono eliminati all'uscita o dopo 24 ore." });
+Object.assign(I18N.fr, { guest: "Continuer en invité", guest_name: "Invité", guest_hint: "Invité : sans compte, les données sont supprimées à la déconnexion ou après 24 heures." });
+Object.assign(I18N.hu, { guest: "Folytatás vendégként", guest_name: "Vendég", guest_hint: "Vendég: fiók nélkül, az adatok kijelentkezéskor vagy 24 óra után törlődnek." });
+Object.assign(I18N.ja, { guest: "ゲストとして続ける", guest_name: "ゲスト", guest_hint: "ゲスト：アカウント不要。データはログアウト時、または24時間後に削除されます。" });
+Object.assign(I18N.es, { guest: "Continuar como invitado", guest_name: "Invitado", guest_hint: "Invitado: sin cuenta, los datos se borran al cerrar sesión o tras 24 horas." });
+Object.assign(I18N.ru, { guest: "Продолжить как гость", guest_name: "Гость", guest_hint: "Гость: без аккаунта, данные удаляются при выходе или через 24 часа." });
+Object.assign(I18N.zh, { guest: "以访客身份继续", guest_name: "访客", guest_hint: "访客：无需账户，数据会在退出登录时或 24 小时后删除。" });
 Object.assign(I18N.de, { password2: "Passwort bestätigen", pw_mismatch: "Die Passwörter stimmen nicht überein." });
 Object.assign(I18N.en, { password2: "Confirm password", pw_mismatch: "The passwords do not match." });
 Object.assign(I18N.it, { password2: "Conferma la password", pw_mismatch: "Le password non coincidono." });
@@ -1062,7 +1075,7 @@ $("hspeak").onclick = helpRead;
 $("hstop").onclick = helpStop;
 
 // ---------- Anmeldung: Zustände login | register | sent | set (Passwort nach dem Link aus der E-Mail) ----------
-let authState = null, verifyToken = new URLSearchParams(location.search).get("verify"), acctEmail = null;
+let authState = null, verifyToken = new URLSearchParams(location.search).get("verify"), acctEmail = null, acctGuest = false;
 if (verifyToken) history.replaceState(null, "", location.pathname);
 const authPost = (path, body) => rawFetch(path, { method: "POST", body: JSON.stringify(body) });
 function showAuth(state, msg = "", ok = false) {
@@ -1078,6 +1091,7 @@ function showAuth(state, msg = "", ok = false) {
   $("apw").autocomplete = state === "set" ? "new-password" : "current-password";
   $("apw2").hidden = state !== "set"; $("apw2").placeholder = t("password2"); $("apw2").value = "";
   $("asubmit").hidden = state === "sent";
+  $("aguest").hidden = state !== "login"; $("aguest").textContent = t("guest"); $("aghint").hidden = state !== "login"; $("aghint").textContent = t("guest_hint");
   $("asubmit").textContent = t({ login: "signin", register: "send_link", set: "create" }[state] || "signin");
   $("amsg").textContent = state === "sent" ? t("mail_sent") : msg;
   $("amsg").className = state === "sent" || ok ? "ok" : "";
@@ -1105,6 +1119,10 @@ $("authform").onsubmit = async e => {
     }
   } catch { showAuth(authState, t("dberr")); }
 };
+$("aguest").onclick = async () => {
+  const r = await authPost("/api/guest", {}).catch(() => null);
+  if (r?.ok) location.reload(); else showAuth("login", t(r?.status === 429 ? "too_many" : "dberr"));
+};
 $("logout").onclick = $("logouttop").onclick = () => authPost("/api/logout", {}).then(() => location.reload());
 // Gravatar: Bild zum SHA-256 der kleingeschriebenen Adresse (identicon, wenn es keins gibt); dafür geht der Hash und die IP des Browsers an gravatar.com
 async function showAvatar() {
@@ -1118,12 +1136,13 @@ async function showAvatar() {
 }
 function showWho() {
   if (acctEmail && !$("avatar").src) showAvatar();
-  $("whotop").hidden = !acctEmail; $("whotop").textContent = $("whotop").title = acctEmail || "";
-  $("logouttop").hidden = !acctEmail; $("logouttop").title = $("logouttop").ariaLabel = t("logout");
-  $("acct").hidden = !acctEmail; $("who").textContent = acctEmail ? t("signed_in", acctEmail) : ""; }
+  const name = acctEmail || (acctGuest ? t("guest_name") : "");
+  $("whotop").hidden = !name; $("whotop").textContent = name; $("whotop").title = acctGuest ? t("guest_hint") : name;
+  $("logouttop").hidden = !name; $("logouttop").title = $("logouttop").ariaLabel = t("logout");
+  $("acct").hidden = !name; $("who").textContent = name ? t("signed_in", name) : ""; }
 for (const [c, n] of Object.entries(LANGS)) $("alang").add(new Option(n, c));
 $("alang").onchange = () => { ui = $("alang").value; try { localStorage.setItem("talk4me.ui", ui); } catch {} applyI18n(); };
-rawFetch("/api/me").then(r => r.ok ? r.json() : r.status === 401 ? showAuth("login") : null).then(j => { if (j?.auth) { acctEmail = j.email; showWho(); } }).catch(() => {});
+rawFetch("/api/me").then(r => r.ok ? r.json() : r.status === 401 ? showAuth("login") : null).then(j => { if (j?.auth) { acctEmail = j.email; acctGuest = j.guest; showWho(); } }).catch(() => {});
 if (verifyToken) showAuth("set");
 
 // ---------- Oberflächensprache und Design ----------
