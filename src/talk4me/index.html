@@ -803,9 +803,20 @@ function popularity(e) { // häufig (log) und kürzlich (Halbwertszeit 7 Tage) v
   const age = (Date.now() - new Date(e.last_used)) / 864e5;
   return 0.1 * Math.log1p(e.count) + 0.2 * 0.5 ** (age / 7);
 }
+// jeder angezeigte Text nur einmal (das erste = beste bzw. jüngste): verschiedene Sätze können in der Eingabesprache gleich lauten
+function unique(list, n) {
+  const seen = new Set(), out = [];
+  for (const e of list) {
+    const k = (shown(e) ?? e.text).trim().toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k); out.push(e);
+    if (out.length >= n) break;
+  }
+  return out;
+}
 function suggest(q, n = 50) {
   q = q.trim().toLowerCase();
-  if (!q) return log.slice(0, n);
+  if (!q) return unique(log, n);
   const scored = [];
   for (const e of log) {
     let f = fuzzy(q, e.text), via = null;
@@ -815,7 +826,7 @@ function suggest(q, n = 50) {
     }
     if (f > 0.4) scored.push([f + popularity(e), via ? { ...e, via } : e]);
   }
-  return scored.sort((a, b) => b[0] - a[0]).slice(0, n).map(r => r[1]);
+  return unique(scored.sort((a, b) => b[0] - a[0]).map(r => r[1]), n);
 }
 // Fehlende Übersetzungen in die Eingabesprache nachladen (Datenbank, sonst Google; translate() speichert sie und lädt neu)
 const tried = new Set();
