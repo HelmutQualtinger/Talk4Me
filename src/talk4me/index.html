@@ -38,6 +38,8 @@
   .look { display: flex; align-items: center; gap: 6px; }
   .rate { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 400; color: var(--muted); }
   .rate input { width: 90px; accent-color: var(--accent); }
+  #whotop { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--muted); }
+  @media (max-width: 559px) { #whotop { max-width: 110px; } }
   .theme { width: 30px; height: 30px; padding: 0; font-size: 18px; line-height: 1; background: none;
                           border: 1.5px solid transparent; border-radius: 8px; }
   .theme { border-color: var(--line) !important; background: var(--surface) !important; }
@@ -216,6 +218,7 @@
       <span class="look">
         <span class="picker" id="pk-emo" hidden></span><span class="picker" id="pk-voice"></span><span class="picker" id="pk-ui"></span>
         <button class="theme" id="theme" type="button"></button>
+        <span id="whotop" hidden></span>
         <button class="theme" id="logouttop" type="button" hidden>⏻</button>
       </span>
       <label class="rate"><span><span data-i18n="rate"></span> <span id="rateval"></span></span>
@@ -1090,6 +1093,7 @@ $("authform").onsubmit = async e => {
 };
 $("logout").onclick = $("logouttop").onclick = () => authPost("/api/logout", {}).then(() => location.reload());
 function showWho() {
+  $("whotop").hidden = !acctEmail; $("whotop").textContent = $("whotop").title = acctEmail || "";
   $("logouttop").hidden = !acctEmail; $("logouttop").title = $("logouttop").ariaLabel = t("logout");
   $("acct").hidden = !acctEmail; $("who").textContent = acctEmail ? t("signed_in", acctEmail) : ""; }
 for (const [c, n] of Object.entries(LANGS)) $("alang").add(new Option(n, c));
