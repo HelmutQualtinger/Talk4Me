@@ -549,7 +549,10 @@ const VOICES = {
 function pickVoice(lang) {
   const chosen = speechSynthesis.getVoices().find(v => v.voiceURI === voiceChoice[lang]);
   if (chosen) return chosen;
-  const all = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === lang);
+  const inLang = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === lang);
+  // die schlecht klingenden Allsprachen-Stimmen von macOS nur, wenn es in der Sprache keine anderen gibt
+  const generic = v => /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley?)\b/i.test(v.name);
+  const all = inLang.some(v => !generic(v)) ? inLang.filter(v => !generic(v)) : inLang;
   // Deutsch: Stimmen der gewählten Variante zuerst (de-AT: Jonas/Ingrid, de-CH: Jan/Leni, jeweils in Edge), sonst alle deutschen
   const pools = lang === "de" ? [all.filter(v => v.lang.replace("_", "-").toLowerCase() === "de-" + $("region").value), all] : [all];
   for (const vs of pools)
