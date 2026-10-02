@@ -38,6 +38,8 @@
   .look { display: flex; align-items: center; gap: 6px; }
   .rate { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 400; color: var(--muted); }
   .rate input { width: 90px; accent-color: var(--accent); }
+  #avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); }
+  #avatar[hidden] { display: none; }
   #whotop { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--muted); }
   @media (max-width: 559px) { #whotop { max-width: 110px; } }
   .theme { width: 30px; height: 30px; padding: 0; font-size: 18px; line-height: 1; background: none;
@@ -218,6 +220,7 @@
       <span class="look">
         <span class="picker" id="pk-emo" hidden></span><span class="picker" id="pk-voice"></span><span class="picker" id="pk-ui"></span>
         <button class="theme" id="theme" type="button"></button>
+        <img id="avatar" alt="" width="28" height="28" hidden referrerpolicy="no-referrer">
         <span id="whotop" hidden></span>
         <button class="theme" id="logouttop" type="button" hidden>⏻</button>
       </span>
@@ -1092,7 +1095,18 @@ $("authform").onsubmit = async e => {
   } catch { showAuth(authState, t("dberr")); }
 };
 $("logout").onclick = $("logouttop").onclick = () => authPost("/api/logout", {}).then(() => location.reload());
+// Gravatar: Bild zum SHA-256 der kleingeschriebenen Adresse (identicon, wenn es keins gibt); dafür geht der Hash und die IP des Browsers an gravatar.com
+async function showAvatar() {
+  const img = $("avatar");
+  if (!acctEmail || !crypto.subtle) { img.hidden = true; return; }
+  const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(acctEmail.trim().toLowerCase())))]
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+  img.onload = () => img.hidden = false;
+  img.onerror = () => img.hidden = true;
+  img.src = `https://gravatar.com/avatar/${h}?s=56&d=identicon`;
+}
 function showWho() {
+  if (acctEmail && !$("avatar").src) showAvatar();
   $("whotop").hidden = !acctEmail; $("whotop").textContent = $("whotop").title = acctEmail || "";
   $("logouttop").hidden = !acctEmail; $("logouttop").title = $("logouttop").ariaLabel = t("logout");
   $("acct").hidden = !acctEmail; $("who").textContent = acctEmail ? t("signed_in", acctEmail) : ""; }
