@@ -546,13 +546,16 @@ const VOICES = {
   },
 };
 
+// Stimmen einer Sprache, ohne die schlecht klingenden Allsprachen-Stimmen von macOS – es sei denn, es gibt in der Sprache keine anderen
+const generic = v => /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley?)\b/i.test(v.name);
+function voicesFor(lang) {
+  const inLang = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === lang);
+  return inLang.some(v => !generic(v)) ? inLang.filter(v => !generic(v)) : inLang;
+}
 function pickVoice(lang) {
   const chosen = speechSynthesis.getVoices().find(v => v.voiceURI === voiceChoice[lang]);
   if (chosen) return chosen;
-  const inLang = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === lang);
-  // die schlecht klingenden Allsprachen-Stimmen von macOS nur, wenn es in der Sprache keine anderen gibt
-  const generic = v => /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley?)\b/i.test(v.name);
-  const all = inLang.some(v => !generic(v)) ? inLang.filter(v => !generic(v)) : inLang;
+  const all = voicesFor(lang);
   // Deutsch: Stimmen der gewählten Variante zuerst (de-AT: Jonas/Ingrid, de-CH: Jan/Leni, jeweils in Edge), sonst alle deutschen
   const pools = lang === "de" ? [all.filter(v => v.lang.replace("_", "-").toLowerCase() === "de-" + $("region").value), all] : [all];
   for (const vs of pools)
@@ -833,7 +836,7 @@ for (const [c, n] of Object.entries(LANGS)) $("vlang").add(new Option(n, c));
 $("vlang").value = $("dst").value;
 function fillVoices() {
   const l = $("vlang").value, sel = $("voice");
-  const vs = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === l)
+  const vs = voicesFor(l)
     .sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
   sel.length = 0;
   sel.add(new Option(t("auto") + (piper[l] ? " · Piper" : ""), ""));
@@ -855,7 +858,7 @@ function fillVoiceMenu(vs) {
   const cur = voiceChoice[l] || (piper[l] ? "piper:" + (piper[l].includes(g) ? g : piper[l][0]) : "");
   const items = [["", t("auto")]];
   for (const x of piper[l] || []) items.push(["piper:" + x, "Piper · " + t(x === "m" ? "male" : "female")]);
-  const mine = speechSynthesis.getVoices().filter(v => v.lang.replace("_", "-").toLowerCase().split("-")[0] === l)
+  const mine = voicesFor(l)
     .sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
   for (const v of mine) items.push([v.voiceURI, `${v.name} (${v.lang})`]);
   vbtn.title = vbtn.ariaLabel = t("voice");
