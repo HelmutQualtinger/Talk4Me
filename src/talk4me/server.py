@@ -4,20 +4,114 @@ from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import db, tts
+from . import auth, db, tts
 
 PAGE = Path(__file__).with_name("index.html")
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, code, body=b"", ctype="application/json"):
+    def _send(self, code, body=b"", ctype="application/json", headers=()):
         self.send_response(code)
+        for k, v in headers:
+            self.send_header(k, v)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
+    # ---- Konten (nur mit TALK4ME_AUTH=1) ----
+    def _token(self):
+        for part in self.headers.get("Cookie", "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "t4m":
+                return v
+
+    def _cookie(self, token):  # leeres Token löscht das Cookie
+        secure = "; Secure" if self.headers.get("X-Forwarded-Proto") == "https" else ""
+        age = auth.SESSION_TTL if token else 0
+        return [("Set-Cookie", f"t4m={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={age}{secure}")]
+
+    def _ip(self):
+        return self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+
+    def _base(self):
+        base = os.environ.get("TALK4ME_BASE_URL")
+        if base:
+            return base
+        host = self.headers.get("Host", "localhost")  # nur ohne TALK4ME_BASE_URL: Host-Header ist vom Client steuerbar
+        return f"{self.headers.get('X-Forwarded-Proto', 'http')}://{host}"
+
+    def _body(self):
+        d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 10_000)))
+        assert isinstance(d, dict)
+        return d
+
+    def _account(self, method, path):
+        """Behandelt /api/me|register|verify|login|logout; True, wenn die Anfrage damit erledigt ist."""
+        if path == "/api/me" and method == "GET":
+            user = auth.ENABLED and auth.user_of(self._token())
+            if auth.ENABLED and not user:
+                self._send(401)
+            else:
+                self._send(200, json.dumps({"auth": auth.ENABLED, "email": user[1] if user else None}).encode())
+            return True
+        if not auth.ENABLED or method != "POST" or path not in ("/api/register", "/api/verify", "/api/login", "/api/logout"):
+            return False
+        try:
+            d = {} if path == "/api/logout" else self._body()
+            if path == "/api/logout":
+                auth.logout(self._token())
+                self._send(204, headers=self._cookie(""))
+            elif path == "/api/register":
+                email = auth.norm(d.get("email"))
+                if not email:
+                    return self._send(400) or True
+                if auth.limited("reg-ip:" + self._ip(), 10, 3600) or auth.limited("reg:" + email, 3, 3600):
+                    return self._send(429) or True
+                lang = d.get("lang") if isinstance(d.get("lang"), str) else "de"
+                auth.register(email, self._base(), lang)
+                self._send(204)
+            elif path == "/api/verify":
+                if auth.limited("ver:" + self._ip(), 20, 3600):
+                    return self._send(429) or True
+                token = auth.verify(str(d.get("token", "")), str(d.get("password", "")))
+                self._send(204, headers=self._cookie(token)) if token else self._send(400)
+            else:  # login
+                email = auth.norm(d.get("email"))
+                if not email or auth.limited("login:" + self._ip(), 20, 900) or auth.limited("login:" + email, 10, 900):
+                    return self._send(429 if email else 400) or True
+                token = auth.login(email, str(d.get("password", "")))
+                self._send(204, headers=self._cookie(token)) if token else self._send(401)
+        except Exception:
+            self._send(400)
+        return True
+
+    def _run(self, method, fn):
+        """Konto-Endpunkte, dann Anmeldung prüfen und die Datenbank des Kontos für diese Anfrage setzen."""
+        path = urlparse(self.path).path
+        if self._account(method, path):
+            return
+        if auth.ENABLED and path.startswith("/api/"):
+            user = auth.user_of(self._token())
+            if not user:
+                return self._send(401)
+            ctx = db.CURRENT.set(auth.user_db(user[0]))
+            try:
+                return fn()
+            finally:
+                db.CURRENT.reset(ctx)
+        fn()
+
     def do_GET(self):
+        self._run("GET", self._get)
+
+    def do_POST(self):
+        self._run("POST", self._post)
+
+    def do_DELETE(self):
+        self._run("DELETE", self._delete)
+
+    def _get(self):
         u = urlparse(self.path)
         if u.path == "/api/sentences":
             self._send(200, json.dumps(db.all()).encode())
@@ -40,7 +134,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send(404)
 
-    def do_POST(self):
+    def _post(self):
         if self.path not in ("/api/sentences", "/api/translation"):
             return self._send(404)
         try:
@@ -57,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400)
         self._send(204)
 
-    def do_DELETE(self):
+    def _delete(self):
         u = urlparse(self.path)
         if u.path != "/api/sentences":
             return self._send(404)

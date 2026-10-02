@@ -1,4 +1,5 @@
 """SQLite-Speicher + Suche, gemeinsam genutzt von Terminal-UI und Web-UI. Ein Satz = eine Zeile."""
+import contextvars
 import math
 import os
 import shutil
@@ -10,6 +11,7 @@ from pathlib import Path
 
 DATA = Path(os.environ.get("TALK4ME_DATA") or Path(__file__).resolve().parents[2] / "data")  # Standard: <Projekt>/data/
 DB = DATA / "talk4me.db"
+CURRENT = contextvars.ContextVar("db_path", default=None)  # Datenbank der Anfrage (Web mit Konten); sonst DB
 OLD_DB = Path.home() / ".talk4me" / "talk4me.db"  # früherer Speicherort
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS sentences (
@@ -31,10 +33,11 @@ TRANSLATIONS = """CREATE TABLE IF NOT EXISTS translations (
 
 
 def _connect():
-    DB.parent.mkdir(parents=True, exist_ok=True)
-    if not DB.exists() and OLD_DB.exists():
+    path = CURRENT.get() or DB
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path == DB and not DB.exists() and OLD_DB.exists():
         shutil.move(OLD_DB, DB)
-    c = sqlite3.connect(DB)
+    c = sqlite3.connect(path)
     c.execute("PRAGMA foreign_keys = ON")
     if any(r[1] == "ts" for r in c.execute("PRAGMA table_info(sentences)")):  # altes Schema: 1 Zeile je Verwendung
         with c:

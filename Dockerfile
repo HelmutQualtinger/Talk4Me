@@ -23,5 +23,5 @@ USER talk4me
 VOLUME /data /voices
 EXPOSE 8765
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8765/api/suggest?q=')"
+  CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8765/')"
 CMD ["talk4me", "serve", "8765"]

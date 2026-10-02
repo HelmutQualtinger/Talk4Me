@@ -14,3 +14,6 @@ data/
 
 # Piper-Stimmen (werden beim Start geladen)
 voices/
+
+# Zugangsdaten für Mailserver
+.env

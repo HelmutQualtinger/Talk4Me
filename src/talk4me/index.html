@@ -133,6 +133,24 @@
                     border: 1px solid var(--line); border-radius: 8px; }
   #helptext p { margin: 8px 2px 0; font-size: 13px; line-height: 1.45; }
   #helptext p.now { background: var(--hl); color: var(--hl-ink); border-radius: 6px; }
+  /* Anmeldung */
+  #auth { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: var(--paper); overflow: auto; }
+  #auth[hidden] { display: none; }
+  #authform { display: flex; flex-direction: column; gap: 10px; width: min(360px, 100%); padding: 20px; background: var(--surface);
+              border: 1px solid var(--line); border-radius: 12px; }
+  #authform h2 { margin: 0; font-size: 18px; }
+  #authform p { margin: 0; font-size: 13px; color: var(--muted); }
+  #authform input, #authform select { padding: 10px 12px; font-size: 16px; background: var(--paper); border: 1.5px solid var(--line); border-radius: 8px; }
+  #authform input:focus { border-color: var(--accent); outline: 0; }
+  #authform input[hidden], #authform p[hidden] { display: none; }
+  #asubmit { padding: 10px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 15px; }
+  #amsg { min-height: 1.2em; font-size: 13px; color: #c0392b; }
+  #amsg.ok { color: var(--accent); }
+  .alinks { display: flex; flex-direction: column; gap: 4px; }
+  .alinks a { color: var(--muted); font-size: 13px; }
+  .alinks a[hidden] { display: none; }
+  #acct { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+  #acct button { padding: 3px 8px; font-size: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
   .tools { display: flex; gap: 6px; margin-top: 8px; }
   .tools button { padding: 4px 10px; font-size: 13px; background: var(--surface);
                   border: 1px solid var(--line); border-radius: 8px; }
@@ -152,6 +170,18 @@
 </style>
 </head>
 <body>
+  <div id="auth" hidden>
+  <form id="authform" novalidate>
+    <select id="alang" aria-label="Language"></select>
+    <h2 id="atitle"></h2>
+    <p id="aintro"></p>
+    <input id="aemail" type="email" autocomplete="username" required>
+    <input id="apw" type="password" autocomplete="current-password" minlength="8">
+    <button id="asubmit" type="submit"></button>
+    <div id="amsg" role="alert"></div>
+    <p class="alinks"><a href="#" id="alink1"></a><a href="#" id="alink2"></a></p>
+  </form>
+</div>
   <div id="bubble" role="status" aria-live="polite"></div>
   <nav id="menu">
     <button class="burger" data-i18n-aria="settings" aria-haspopup="true">☰</button>
@@ -164,6 +194,7 @@
           <option value="de" data-i18n="de"></option>
         </select>
       </label>
+      <div class="wide" id="acct" hidden><span id="who"></span> <button id="logout" type="button" data-i18n="logout"></button></div>
       <label><span data-i18n="voice"></span>
         <select id="gender">
           <option value="m" data-i18n="male"></option>
@@ -461,6 +492,19 @@ for (const [c, h] of Object.entries(HELP)) {
   ps.splice(5, 0, HELP_EMO[c]);
   Object.assign(I18N[c], h, { help_body: ps.join("\n\n") });
 }
+// Anmeldung (nur wenn der Server TALK4ME_AUTH=1 hat)
+const AUTH = {
+  de: { signin: "Anmelden", email: "E-Mail-Adresse", password: "Passwort", noaccount: "Noch kein Konto? Registrieren", forgot: "Passwort vergessen?", reg_title: "Registrieren", reg_intro: "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link, mit dem du dein Konto anlegst oder das Passwort neu setzt.", send_link: "Link senden", mail_sent: "Wir haben dir eine E-Mail geschickt. Öffne den Link darin, um fortzufahren.", set_title: "Passwort wählen", pw_hint: "Mindestens 8 Zeichen", create: "Konto anlegen", back: "Zurück zur Anmeldung", bad_login: "E-Mail oder Passwort falsch.", bad_email: "Ungültige E-Mail-Adresse.", bad_link: "Der Link ist ungültig oder abgelaufen. Fordere einen neuen an.", too_many: "Zu viele Versuche, bitte später erneut.", logout: "Abmelden", signed_in: "Angemeldet als {0}" },
+  en: { signin: "Sign in", email: "Email address", password: "Password", noaccount: "No account yet? Register", forgot: "Forgot password?", reg_title: "Register", reg_intro: "Enter your email address. We will send you a link to create your account or to set a new password.", send_link: "Send link", mail_sent: "We sent you an email. Open the link in it to continue.", set_title: "Choose a password", pw_hint: "At least 8 characters", create: "Create account", back: "Back to sign in", bad_login: "Wrong email or password.", bad_email: "Invalid email address.", bad_link: "The link is invalid or has expired. Request a new one.", too_many: "Too many attempts, please try again later.", logout: "Sign out", signed_in: "Signed in as {0}" },
+  it: { signin: "Accedi", email: "Indirizzo e-mail", password: "Password", noaccount: "Non hai un account? Registrati", forgot: "Password dimenticata?", reg_title: "Registrati", reg_intro: "Inserisci il tuo indirizzo e-mail. Ti invieremo un link per creare l'account o impostare una nuova password.", send_link: "Invia il link", mail_sent: "Ti abbiamo inviato un'e-mail. Apri il link per continuare.", set_title: "Scegli una password", pw_hint: "Almeno 8 caratteri", create: "Crea account", back: "Torna all'accesso", bad_login: "E-mail o password errata.", bad_email: "Indirizzo e-mail non valido.", bad_link: "Il link non è valido o è scaduto. Richiedine uno nuovo.", too_many: "Troppi tentativi, riprova più tardi.", logout: "Esci", signed_in: "Connesso come {0}" },
+  fr: { signin: "Se connecter", email: "Adresse e-mail", password: "Mot de passe", noaccount: "Pas encore de compte ? S'inscrire", forgot: "Mot de passe oublié ?", reg_title: "S'inscrire", reg_intro: "Saisissez votre adresse e-mail. Nous vous enverrons un lien pour créer votre compte ou définir un nouveau mot de passe.", send_link: "Envoyer le lien", mail_sent: "Nous vous avons envoyé un e-mail. Ouvrez le lien pour continuer.", set_title: "Choisir un mot de passe", pw_hint: "Au moins 8 caractères", create: "Créer le compte", back: "Retour à la connexion", bad_login: "E-mail ou mot de passe incorrect.", bad_email: "Adresse e-mail invalide.", bad_link: "Le lien est invalide ou expiré. Demandez-en un nouveau.", too_many: "Trop de tentatives, réessayez plus tard.", logout: "Se déconnecter", signed_in: "Connecté en tant que {0}" },
+  hu: { signin: "Bejelentkezés", email: "E-mail-cím", password: "Jelszó", noaccount: "Még nincs fiókod? Regisztráció", forgot: "Elfelejtett jelszó?", reg_title: "Regisztráció", reg_intro: "Add meg az e-mail-címedet. Küldünk egy hivatkozást, amellyel létrehozhatod a fiókodat vagy új jelszót állíthatsz be.", send_link: "Hivatkozás küldése", mail_sent: "E-mailt küldtünk. A folytatáshoz nyisd meg benne a hivatkozást.", set_title: "Jelszó választása", pw_hint: "Legalább 8 karakter", create: "Fiók létrehozása", back: "Vissza a bejelentkezéshez", bad_login: "Hibás e-mail-cím vagy jelszó.", bad_email: "Érvénytelen e-mail-cím.", bad_link: "A hivatkozás érvénytelen vagy lejárt. Kérj újat.", too_many: "Túl sok próbálkozás, próbáld újra később.", logout: "Kijelentkezés", signed_in: "Bejelentkezve: {0}" },
+  ja: { signin: "ログイン", email: "メールアドレス", password: "パスワード", noaccount: "アカウントがありませんか？ 登録する", forgot: "パスワードをお忘れですか？", reg_title: "登録", reg_intro: "メールアドレスを入力してください。アカウント作成またはパスワード再設定のためのリンクをお送りします。", send_link: "リンクを送信", mail_sent: "メールを送信しました。中のリンクを開いて続行してください。", set_title: "パスワードを設定", pw_hint: "8文字以上", create: "アカウントを作成", back: "ログインに戻る", bad_login: "メールアドレスまたはパスワードが違います。", bad_email: "メールアドレスが正しくありません。", bad_link: "リンクが無効か、期限切れです。新しいリンクを請求してください。", too_many: "試行回数が多すぎます。後でもう一度お試しください。", logout: "ログアウト", signed_in: "{0} でログイン中" },
+  es: { signin: "Iniciar sesión", email: "Correo electrónico", password: "Contraseña", noaccount: "¿Aún no tienes cuenta? Regístrate", forgot: "¿Olvidaste la contraseña?", reg_title: "Registrarse", reg_intro: "Introduce tu correo electrónico. Te enviaremos un enlace para crear tu cuenta o establecer una nueva contraseña.", send_link: "Enviar enlace", mail_sent: "Te hemos enviado un correo. Abre el enlace para continuar.", set_title: "Elige una contraseña", pw_hint: "Al menos 8 caracteres", create: "Crear cuenta", back: "Volver al inicio de sesión", bad_login: "Correo o contraseña incorrectos.", bad_email: "Correo electrónico no válido.", bad_link: "El enlace no es válido o ha caducado. Solicita uno nuevo.", too_many: "Demasiados intentos, inténtalo más tarde.", logout: "Cerrar sesión", signed_in: "Sesión iniciada como {0}" },
+  ru: { signin: "Войти", email: "Адрес электронной почты", password: "Пароль", noaccount: "Нет аккаунта? Зарегистрируйтесь", forgot: "Забыли пароль?", reg_title: "Регистрация", reg_intro: "Введите адрес электронной почты. Мы отправим ссылку для создания аккаунта или установки нового пароля.", send_link: "Отправить ссылку", mail_sent: "Мы отправили вам письмо. Откройте ссылку в нём, чтобы продолжить.", set_title: "Выберите пароль", pw_hint: "Не менее 8 символов", create: "Создать аккаунт", back: "Назад ко входу", bad_login: "Неверная почта или пароль.", bad_email: "Недопустимый адрес электронной почты.", bad_link: "Ссылка недействительна или устарела. Запросите новую.", too_many: "Слишком много попыток, повторите позже.", logout: "Выйти", signed_in: "Вы вошли как {0}" },
+  zh: { signin: "登录", email: "电子邮箱", password: "密码", noaccount: "还没有账户？注册", forgot: "忘记密码？", reg_title: "注册", reg_intro: "请输入你的电子邮箱。我们会发送一个链接，用于创建账户或设置新密码。", send_link: "发送链接", mail_sent: "我们已向你发送了一封邮件。请打开其中的链接继续。", set_title: "设置密码", pw_hint: "至少 8 个字符", create: "创建账户", back: "返回登录", bad_login: "邮箱或密码错误。", bad_email: "邮箱地址无效。", bad_link: "链接无效或已过期，请重新申请。", too_many: "尝试次数过多，请稍后再试。", logout: "退出登录", signed_in: "已登录：{0}" },
+};
+for (const [c, a] of Object.entries(AUTH)) Object.assign(I18N[c], a);
 let ui = "de";
 try { ui = localStorage.getItem("talk4me.ui"); } catch {}
 if (!I18N[ui]) ui = I18N[(navigator.language || "").slice(0, 2)] ? navigator.language.slice(0, 2) : "de";
@@ -468,6 +512,10 @@ const t = (k, ...a) => (I18N[ui][k] ?? I18N.de[k]).replace(/\{(\d)\}/g, (_, i) =
 
 const API = "/api/sentences"; // SQLite-Server: `uv run talk4me serve`
 const $ = id => document.getElementById(id);
+
+// Anmeldung: jede 401-Antwort der API zeigt das Anmeldeformular; die Anmelde-Aufrufe selbst gehen am Umweg vorbei
+const rawFetch = window.fetch.bind(window);
+window.fetch = (...a) => rawFetch(...a).then(r => { if (r.status === 401 && String(a[0]).startsWith("/api/")) showAuth("login"); return r; });
 
 let log = []; // [{text, lang, first_used, last_used, count}], zuletzt verwendet zuerst
 let sugg = [], sel = 0, speaking = 0;
@@ -985,8 +1033,59 @@ function helpRead() {
 $("hspeak").onclick = helpRead;
 $("hstop").onclick = helpStop;
 
+// ---------- Anmeldung: Zustände login | register | sent | set (Passwort nach dem Link aus der E-Mail) ----------
+let authState = null, verifyToken = new URLSearchParams(location.search).get("verify"), acctEmail = null;
+if (verifyToken) history.replaceState(null, "", location.pathname);
+const authPost = (path, body) => rawFetch(path, { method: "POST", body: JSON.stringify(body) });
+function showAuth(state, msg = "", ok = false) {
+  if (authState === "set" && state === "login") return; // Link aus der E-Mail hat Vorrang vor dem Anmeldeformular
+  authState = state;
+  $("auth").hidden = false;
+  const email = state === "login" || state === "register", pw = state === "login" || state === "set";
+  $("atitle").textContent = t({ login: "signin", register: "reg_title", sent: "reg_title", set: "set_title" }[state]);
+  $("aintro").hidden = !(state === "register" || state === "set");
+  $("aintro").textContent = t(state === "set" ? "pw_hint" : "reg_intro");
+  $("aemail").hidden = !email; $("aemail").placeholder = t("email");
+  $("apw").hidden = !pw; $("apw").placeholder = t("password");
+  $("apw").autocomplete = state === "set" ? "new-password" : "current-password";
+  $("asubmit").hidden = state === "sent";
+  $("asubmit").textContent = t({ login: "signin", register: "send_link", set: "create" }[state] || "signin");
+  $("amsg").textContent = state === "sent" ? t("mail_sent") : msg;
+  $("amsg").className = state === "sent" || ok ? "ok" : "";
+  const l1 = $("alink1"), l2 = $("alink2");
+  l1.hidden = l2.hidden = false;
+  if (state === "login") { l1.textContent = t("noaccount"); l1.onclick = e => (e.preventDefault(), showAuth("register")); l2.textContent = t("forgot"); l2.onclick = l1.onclick; }
+  else { l1.textContent = t("back"); l1.onclick = e => (e.preventDefault(), showAuth("login")); l2.hidden = true; }
+  (email ? $("aemail") : $("apw")).focus();
+}
+$("authform").onsubmit = async e => {
+  e.preventDefault();
+  const email = $("aemail").value.trim(), pw = $("apw").value;
+  try {
+    if (authState === "register") {
+      const r = await authPost("/api/register", { email, lang: ui });
+      r.ok ? showAuth("sent") : showAuth("register", t(r.status === 429 ? "too_many" : "bad_email"));
+    } else if (authState === "set") {
+      if (pw.length < 8) return showAuth("set", t("pw_hint"));
+      const r = await authPost("/api/verify", { token: verifyToken, password: pw });
+      if (r.ok) location.reload(); else { verifyToken = null; authState = null; showAuth("login", t("bad_link")); }
+    } else {
+      const r = await authPost("/api/login", { email, password: pw });
+      if (r.ok) location.reload(); else showAuth("login", t(r.status === 429 ? "too_many" : "bad_login"));
+    }
+  } catch { showAuth(authState, t("dberr")); }
+};
+$("logout").onclick = () => authPost("/api/logout", {}).then(() => location.reload());
+function showWho() { $("acct").hidden = !acctEmail; $("who").textContent = acctEmail ? t("signed_in", acctEmail) : ""; }
+for (const [c, n] of Object.entries(LANGS)) $("alang").add(new Option(n, c));
+$("alang").onchange = () => { ui = $("alang").value; try { localStorage.setItem("talk4me.ui", ui); } catch {} applyI18n(); };
+rawFetch("/api/me").then(r => r.ok ? r.json() : r.status === 401 ? showAuth("login") : null).then(j => { if (j?.auth) { acctEmail = j.email; showWho(); } }).catch(() => {});
+if (verifyToken) showAuth("set");
+
 // ---------- Oberflächensprache und Design ----------
 function applyI18n() {
+  $("alang").value = ui; showWho();
+  if (!$("auth").hidden) showAuth(authState); // Anmeldeformular in der neuen Sprache
   helpStop();
   $("helptext").replaceChildren(...t("help_body").split("\n\n").map(x => Object.assign(document.createElement("p"), { textContent: x })));
   $("hspeak").title = $("hspeak").ariaLabel = t("help_read");
