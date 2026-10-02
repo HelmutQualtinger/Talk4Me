@@ -28,10 +28,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"text": db.translation(q.get("text", ""), q.get("from"), q.get("to"))}).encode())
         elif u.path == "/api/tts/voices":  # {lang: [m, f]} der installierten Piper-Stimmen
             self._send(200, json.dumps(tts.available()).encode())
-        elif u.path == "/api/tts":  # ?text=&lang=&gender=m|f&rate=1.0 -> audio/wav
+        elif u.path == "/api/tts":  # ?text=&lang=&gender=m|f&rate=1.0&emotion= -> audio/wav
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             try:
-                wav = tts.synth(q.get("text", ""), q.get("lang", ""), q.get("gender", "m"), float(q.get("rate", 1)))
+                wav = tts.synth(q.get("text", ""), q.get("lang", ""), q.get("gender", "m"), float(q.get("rate", 1)), q.get("emotion", ""))
             except Exception:
                 wav = None
             self._send(200, wav, "audio/wav") if wav else self._send(404)

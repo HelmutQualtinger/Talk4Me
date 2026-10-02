@@ -41,8 +41,8 @@
   .theme { width: 30px; height: 30px; padding: 0; font-size: 18px; line-height: 1; background: none;
                           border: 1.5px solid transparent; border-radius: 8px; }
   .theme { border-color: var(--line) !important; background: var(--surface) !important; }
-  #pk-voice .pkmenu, #pk-ui .pkmenu { max-height: 60vh; overflow-y: auto; white-space: nowrap; }
-  #pk-voice .pkmenu { left: auto; right: 0; transform: none; }
+  #pk-emo .pkmenu, #pk-voice .pkmenu, #pk-ui .pkmenu { max-height: 60vh; overflow-y: auto; white-space: nowrap; }
+  #pk-emo .pkmenu, #pk-voice .pkmenu { left: auto; right: 0; transform: none; }
   #pk-ui .pkmenu { left: auto; right: 0; transform: none; }
   .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(128,128,128,.45); }
   h1 { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 34px; margin: 0 0 10px; padding-left: 44px;
@@ -182,7 +182,7 @@
     <span class="pair"><span class="picker" id="pk-src"></span><span aria-hidden="true">→</span><span class="picker" id="pk-dst"></span></span>
     <span class="top">
       <span class="look">
-        <span class="picker" id="pk-voice"></span><span class="picker" id="pk-ui"></span>
+        <span class="picker" id="pk-emo" hidden></span><span class="picker" id="pk-voice"></span><span class="picker" id="pk-ui"></span>
         <button class="theme" id="theme" type="button"></button>
       </span>
       <label class="rate"><span><span data-i18n="rate"></span> <span id="rateval"></span></span>
@@ -444,7 +444,23 @@ const HELP = {
     "历史记录：下方是你以前的句子。点击其中一句会再次朗读。导出会把它们保存为表格，删除所有消息会清空数据库。",
     "隐私：句子和译文保存在你自己的数据库中。只有翻译时才会把句子发送给 Google 翻译，已保存译文的除外。"].join("\n\n") },
 };
-for (const [c, h] of Object.entries(HELP)) Object.assign(I18N[c], h);
+// Absatz zur Emotion, nach dem Absatz "Stimme" eingefügt
+const HELP_EMO = {
+  de: "Emotion: Bei der deutschen Männerstimme Thorsten erscheint oben ein Smiley-Menü. Damit stellst du die Stimmung ein: neutral, fröhlich, wütend, angeekelt, betrunken, schläfrig, überrascht oder flüsternd. Danach wird der letzte Satz wiederholt.",
+  en: "Emotion: for the German male voice Thorsten, a smiley menu appears at the top. It sets the mood: neutral, amused, angry, disgusted, drunk, sleepy, surprised or whispering. After you choose, the last sentence is repeated.",
+  it: "Emozione: per la voce maschile tedesca Thorsten compare in alto un menu di faccine. Imposta l'umore: neutro, divertito, arrabbiato, disgustato, ubriaco, assonnato, sorpreso o sussurrato. Dopo la scelta, l'ultima frase viene ripetuta.",
+  fr: "Émotion : pour la voix masculine allemande Thorsten, un menu de smileys apparaît en haut. Il règle l'humeur : neutre, amusé, en colère, dégoûté, ivre, endormi, surpris ou chuchoté. Après votre choix, la dernière phrase est répétée.",
+  hu: "Érzelem: a német férfihangnál, Thorstennél felül egy hangulatjel-menü jelenik meg. Ezzel állítod be a hangulatot: semleges, vidám, dühös, undorodó, részeg, álmos, meglepett vagy suttogó. A választás után az utolsó mondatot megismétli.",
+  ja: "感情：ドイツ語の男性の声トールステンでは、上部に顔文字のメニューが表示されます。ここで、普通、楽しい、怒り、嫌悪、酔っている、眠い、驚き、ささやきの中から気分を選びます。選ぶと、直前の文をもう一度読み上げます。",
+  es: "Emoción: para la voz masculina alemana Thorsten aparece arriba un menú de emoticonos. Con él eliges el estado de ánimo: neutro, divertido, enfadado, asqueado, borracho, somnoliento, sorprendido o susurrando. Después de elegir, se repite la última frase.",
+  ru: "Эмоция: для немецкого мужского голоса Торстен вверху появляется меню смайликов. Им выбирается настроение: нейтральное, весёлое, злое, брезгливое, пьяное, сонное, удивлённое или шёпот. После выбора последняя фраза повторяется.",
+  zh: "情绪：使用德语男声托尔斯滕时，顶部会出现表情符号菜单，用来设置语气：中性、愉快、愤怒、厌恶、醉酒、困倦、惊讶或耳语。选择后，会重复最后一句话。",
+};
+for (const [c, h] of Object.entries(HELP)) {
+  const ps = h.help_body.split("\n\n");
+  ps.splice(5, 0, HELP_EMO[c]);
+  Object.assign(I18N[c], h, { help_body: ps.join("\n\n") });
+}
 let ui = "de";
 try { ui = localStorage.getItem("talk4me.ui"); } catch {}
 if (!I18N[ui]) ui = I18N[(navigator.language || "").slice(0, 2)] ? navigator.language.slice(0, 2) : "de";
@@ -581,7 +597,9 @@ fetch("/api/tts/voices").then(r => r.json()).then(v => { piper = v; fillVoices()
 const stopAudio = () => { if (audio) { const a = audio; audio = null; a.pause(); a.dispatchEvent(new Event("ended")); } };
 function speakPiper(text, lang) {
   const g = $("gender").value, have = piper[lang];
-  const a = audio = new Audio("/api/tts?" + new URLSearchParams({ text, lang, gender: g, rate: $("rate").value / 100 }));
+  const p = { text, lang, gender: g, rate: $("rate").value / 100 };
+  if (emotionOn(lang)) p.emotion = emotion;
+  const a = audio = new Audio("/api/tts?" + new URLSearchParams(p));
   $("status").textContent = t("voiceis", "Piper (" + (have.includes(g) ? have : have[0]) + ")");
   $("bubble").textContent = text;
   const done = () => { if (audio === a || !audio) audio = null; $("card").classList.remove("speaking"); bubble(false); };
@@ -590,6 +608,14 @@ function speakPiper(text, lang) {
   a.play().catch(() => { done(); speakBrowser(text, lang); });
 }
 let lastSpoken = null, lastSaid = null; // lastSaid: {text, from} der zuletzt eingegebene Satz; {text, lang} der letzten Ausgabe, für die Wiederholung nach einem Stimmwechsel
+// Emotionen der deutschen Piper-Männerstimme (Thorsten emotional): Sprechername -> Emoticon
+const EMOTIONS = { neutral: "😐", amused: "😄", angry: "😠", disgusted: "🤢", drunk: "🥴", sleepy: "😴", surprised: "😮", whisper: "🤫" };
+let emotion = "neutral";
+try { emotion = localStorage.getItem("talk4me.emotion") in EMOTIONS ? localStorage.getItem("talk4me.emotion") : "neutral"; } catch {}
+function emotionOn(lang) { // gilt nur, wenn Piper die deutsche Männerstimme spricht
+  const have = piper.de, g = $("gender").value;
+  return lang === "de" && !!have && !voiceChoice.de && (have.includes(g) ? g : have[0]) === "m";
+}
 function speak(text, lang) {
   lastSpoken = { text, lang };
   helpStop(); // laufendes Vorlesen der Anleitung beenden
@@ -845,6 +871,30 @@ function fillVoices() {
   $("vcount").textContent = t("found", vs.length);
   fillVoiceMenu(vs);
 }
+// Emotions-Knopf (nur bei der deutschen Piper-Männerstimme): Emoticon-Menü, danach wird der letzte Satz wiederholt
+const emenu = document.createElement("div"), ebtn = document.createElement("button");
+ebtn.type = "button"; ebtn.className = "pk"; ebtn.setAttribute("aria-haspopup", "listbox");
+emenu.className = "pkmenu"; emenu.hidden = true; emenu.setAttribute("role", "listbox");
+$("pk-emo").append(ebtn, emenu);
+$("pk-emo").close = () => { emenu.hidden = true; ebtn.setAttribute("aria-expanded", "false"); };
+ebtn.onclick = () => { const open = emenu.hidden; closeAll(); emenu.hidden = !open; ebtn.setAttribute("aria-expanded", String(open)); };
+$("pk-emo").addEventListener("keydown", e => { if (e.key === "Escape" && !emenu.hidden) { e.stopPropagation(); $("pk-emo").close(); ebtn.focus(); } });
+function fillEmotion() {
+  $("pk-emo").hidden = !($("dst").value === "de" && emotionOn("de"));
+  ebtn.textContent = EMOTIONS[emotion] + " ▾";
+  ebtn.title = ebtn.ariaLabel = emotion;
+  emenu.replaceChildren(...Object.entries(EMOTIONS).map(([k, e]) => {
+    const o = document.createElement("button");
+    o.type = "button"; o.setAttribute("role", "option"); o.textContent = e; o.title = k; o.ariaLabel = k;
+    o.setAttribute("aria-selected", String(k === emotion));
+    o.onclick = () => {
+      emotion = k;
+      try { localStorage.setItem("talk4me.emotion", k); } catch {}
+      $("pk-emo").close(); fillEmotion(); replayLast("de"); $("q").focus();
+    };
+    return o;
+  }));
+}
 // Stimmen-Knopf in der obersten Zeile: nur Stimmen der Zielsprache; Auswahl spricht den letzten Satz erneut
 const vmenu = document.createElement("div"), vbtn = document.createElement("button");
 vbtn.type = "button"; vbtn.className = "pk"; vbtn.textContent = "🔊 ▾"; vbtn.setAttribute("aria-haspopup", "listbox");
@@ -853,7 +903,13 @@ $("pk-voice").append(vbtn, vmenu);
 $("pk-voice").close = () => { vmenu.hidden = true; vbtn.setAttribute("aria-expanded", "false"); };
 vbtn.onclick = () => { const open = vmenu.hidden; closeAll(); vmenu.hidden = !open; vbtn.setAttribute("aria-expanded", String(open)); };
 $("pk-voice").addEventListener("keydown", e => { if (e.key === "Escape" && !vmenu.hidden) { e.stopPropagation(); $("pk-voice").close(); vbtn.focus(); } });
+function replayLast(l) {
+  const last = lastSaid || (log[0] && { text: log[0].text, from: log[0].lang }); // nach dem Laden: jüngster Satz des Verlaufs
+  if (lastSpoken && lastSpoken.lang === l) speak(lastSpoken.text, l);
+  else if (last) say(last.text, last.from); // andere Zielsprache oder noch nichts gesprochen: neu übersetzen und sprechen
+}
 function fillVoiceMenu(vs) {
+  fillEmotion();
   const l = $("dst").value, g = $("gender").value;
   const cur = voiceChoice[l] || (piper[l] ? "piper:" + (piper[l].includes(g) ? g : piper[l][0]) : "");
   const items = [["", t("auto")]];
@@ -871,9 +927,7 @@ function fillVoiceMenu(vs) {
       else voiceChoice[l] = val;
       try { localStorage.setItem("talk4me.voices", JSON.stringify(voiceChoice)); localStorage.setItem("talk4me.gender", $("gender").value); } catch {}
       $("pk-voice").close(); fillVoices();
-      const last = lastSaid || (log[0] && { text: log[0].text, from: log[0].lang }); // nach dem Laden: jüngster Satz des Verlaufs
-      if (lastSpoken && lastSpoken.lang === l) speak(lastSpoken.text, l);
-      else if (last) say(last.text, last.from); // andere Zielsprache oder noch nichts gesprochen: neu übersetzen und sprechen
+      replayLast(l);
       $("q").focus();
     };
     return o;
