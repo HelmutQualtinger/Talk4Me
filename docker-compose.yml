@@ -4,6 +4,7 @@ services:
     image: talk4me
     container_name: talk4me
     restart: unless-stopped
+    mem_limit: 1g               # Piper-Stimmen sind im RAM gecacht (max. TALK4ME_MAX_VOICES, Standard 3)
     user: root                  # ./data gehört root auf dem Host; das Image-Standardbenutzer (uid 1000) könnte dort nicht schreiben
     ports:
       - "127.0.0.1:8765:8765"   # nur lokal erreichbar; von außen über den Reverse-Proxy (mit TALK4ME_AUTH=1 braucht die API ein Konto)

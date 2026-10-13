@@ -1,5 +1,6 @@
 """Server-seitige Sprachausgabe mit Piper (nur im Docker-Image installiert; sonst ist alles leer und die Web-UI nimmt Browser-Stimmen)."""
 import io, os, threading, urllib.request, wave
+from collections import OrderedDict
 from pathlib import Path
 
 VOICE_DIR = Path(os.environ.get("TALK4ME_VOICES", "/voices"))
@@ -14,7 +15,8 @@ VOICES = {
     "ru": {"m": "ru_RU-denis-medium", "f": "ru_RU-irina-medium"},
     "zh": {"f": "zh_CN-huayan-medium"},
 }
-_loaded, _lock = {}, threading.Lock()
+MAX_LOADED = int(os.environ.get("TALK4ME_MAX_VOICES", "3"))  # geladene ONNX-Sitzungen belegen je ~150-300 MB RAM
+_loaded, _lock = OrderedDict(), threading.Lock()
 
 
 def _name(lang, gender):
@@ -67,7 +69,12 @@ def synth(text, lang, gender="m", rate=1.0, emotion=""):
         return None
     from piper import PiperVoice, SynthesisConfig
     with _lock:  # ONNX-Sitzung nicht parallel benutzen
-        voice = _loaded.get(name) or _loaded.setdefault(name, PiperVoice.load(VOICE_DIR / f"{name}.onnx"))
+        voice = _loaded.get(name)
+        if voice is None:
+            while len(_loaded) >= MAX_LOADED:
+                _loaded.popitem(last=False)  # am längsten ungenutzte Stimme entladen
+            voice = _loaded[name] = PiperVoice.load(VOICE_DIR / f"{name}.onnx")
+        _loaded.move_to_end(name)
         speakers = voice.config.speaker_id_map  # leer bei Einzelsprecher-Modellen
         sid = speakers.get(emotion, speakers.get("neutral")) if speakers else None
         buf = io.BytesIO()
